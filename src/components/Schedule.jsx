@@ -31,12 +31,8 @@ export default function Schedule({ locationColors }) {
 
   const getLocationInfo = useCallback((locationId) => {
     const location = locations.find(loc => loc.id === locationId);
-    if (!location) return { name: 'Unknown', color: '#95a5a6', emoji: '' };
-    return {
-      name: location.name,
-      color: location.color,
-      emoji: location.emoji || ''
-    };
+    if (!location) return { name: 'Unknown', color: '#95a5a6' };
+    return { name: location.name, color: location.color };
   }, [locations]);
 
   const formatDate = (dateString) => {
@@ -89,11 +85,7 @@ export default function Schedule({ locationColors }) {
 
   const handleEdit = (perf) => {
     setEditingPerf(perf.id);
-    setEditForm({
-      location_id: perf.location_id,
-      date: perf.date,
-      time: perf.time
-    });
+    setEditForm({ location_id: perf.location_id, date: perf.date, time: perf.time });
   };
 
   const handleCancelEdit = () => {
@@ -103,7 +95,7 @@ export default function Schedule({ locationColors }) {
 
   const handleSaveEdit = async (perfId) => {
     if (!editForm.location_id || !editForm.date || !editForm.time) {
-      setMessage('❌ All fields are required');
+      setMessage('⚠️ All fields are required');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -117,12 +109,12 @@ export default function Schedule({ locationColors }) {
 
       setMessage('✓ Performance updated successfully!');
       setTimeout(() => setMessage(''), 3000);
-      
+
       setEditingPerf(null);
       loadData();
     } catch (error) {
       console.error('Error updating performance:', error);
-      setMessage('❌ Error updating performance');
+      setMessage('⚠️ Error updating performance');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -138,7 +130,7 @@ export default function Schedule({ locationColors }) {
         loadData();
       } catch (error) {
         console.error('Error deleting performance:', error);
-        setMessage('❌ Error deleting performance');
+        setMessage('⚠️ Error deleting performance');
         setTimeout(() => setMessage(''), 3000);
       }
     }
@@ -150,198 +142,245 @@ export default function Schedule({ locationColors }) {
 
   return (
     <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '20px' }}>Performance Schedule</h2>
-
-      {message && (
-        <div style={{
-          padding: '15px',
-          marginBottom: '20px',
-          backgroundColor: message.includes('❌') ? '#ffebee' : '#e8f5e9',
-          color: message.includes('❌') ? '#c62828' : '#2e7d32',
-          borderRadius: '5px',
-          border: `1px solid ${message.includes('❌') ? '#ef5350' : '#66bb6a'}`
+      <div style={{
+        background: 'white',
+        borderRadius: '20px',
+        padding: '24px',
+        boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
+        marginBottom: '20px'
+      }}>
+        <h2 style={{ 
+          marginTop: 0, 
+          marginBottom: '24px', 
+          fontSize: '26px', 
+          color: '#1a1a1a',
+          fontWeight: '700'
         }}>
-          {message}
-        </div>
-      )}
+          Performance Schedule
+        </h2>
 
-      <div style={{
-        padding: '15px',
-        backgroundColor: 'white',
-        borderRadius: '5px',
-        marginBottom: '20px',
-        border: '1px solid #ddd'
-      }}>
-        <div style={{ marginBottom: '15px' }}>
-          <strong>Filter by:</strong>
-        </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '15px' }}>
-          <button
-            onClick={() => {
-              setFilterType('all');
-              setFilterValue('');
-            }}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: filterType === 'all' ? '#0066cc' : '#f0f0f0',
-              color: filterType === 'all' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: filterType === 'all' ? 'bold' : 'normal'
-            }}
-          >
-            Show All
-          </button>
-          <button
-            onClick={() => {
-              setFilterType('date');
-              setFilterValue('');
-            }}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: filterType === 'date' ? '#0066cc' : '#f0f0f0',
-              color: filterType === 'date' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: filterType === 'date' ? 'bold' : 'normal'
-            }}
-          >
-            By Date
-          </button>
-          <button
-            onClick={() => {
-              setFilterType('stage');
-              setFilterValue('');
-            }}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: filterType === 'stage' ? '#0066cc' : '#f0f0f0',
-              color: filterType === 'stage' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: filterType === 'stage' ? 'bold' : 'normal'
-            }}
-          >
-            By Stage
-          </button>
-          <button
-            onClick={() => {
-              setFilterType('band');
-              setFilterValue('');
-            }}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: filterType === 'band' ? '#0066cc' : '#f0f0f0',
-              color: filterType === 'band' ? 'white' : '#333',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: 'pointer',
-              fontWeight: filterType === 'band' ? 'bold' : 'normal'
-            }}
-          >
-            By Band
-          </button>
-        </div>
-
-        {filterType === 'date' && (
-          <select
-            value={filterValue}
-            onChange={(e) => setFilterValue(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '16px',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
-            }}
-          >
-            <option value="">Select a date...</option>
-            {uniqueDates.map(date => (
-              <option key={date} value={date}>{formatDate(date)}</option>
-            ))}
-          </select>
+        {message && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '20px',
+            background: message.includes('⚠️') ? 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)' : 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
+            color: 'white',
+            borderRadius: '12px',
+            fontSize: '15px',
+            fontWeight: '600',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+          }}>
+            {message}
+          </div>
         )}
 
-        {filterType === 'stage' && (
-          <select
-            value={filterValue}
-            onChange={(e) => setFilterValue(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '16px',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
-            }}
-          >
-            <option value="">Select a stage...</option>
-            {locations.map(loc => (
-              <option key={loc.id} value={loc.id}>
-                {loc.emoji ? `${loc.emoji} ` : ''}{loc.name}
-              </option>
-            ))}
-          </select>
-        )}
+        {/* Filter Section */}
+        <div style={{ marginBottom: '20px' }}>
+          <div style={{ 
+            fontSize: '15px', 
+            fontWeight: '600', 
+            marginBottom: '12px',
+            color: '#495057'
+          }}>
+            Filter by:
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
+            <button
+              onClick={() => {
+                setFilterType('all');
+                setFilterValue('');
+              }}
+              style={{
+                padding: '10px 20px',
+                background: filterType === 'all' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                color: filterType === 'all' ? 'white' : '#495057',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: filterType === 'all' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Show All
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('date');
+                setFilterValue('');
+              }}
+              style={{
+                padding: '10px 20px',
+                background: filterType === 'date' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                color: filterType === 'date' ? 'white' : '#495057',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: filterType === 'date' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              By Date
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('stage');
+                setFilterValue('');
+              }}
+              style={{
+                padding: '10px 20px',
+                background: filterType === 'stage' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                color: filterType === 'stage' ? 'white' : '#495057',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: filterType === 'stage' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              By Stage
+            </button>
+            <button
+              onClick={() => {
+                setFilterType('band');
+                setFilterValue('');
+              }}
+              style={{
+                padding: '10px 20px',
+                background: filterType === 'band' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                color: filterType === 'band' ? 'white' : '#495057',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: filterType === 'band' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              By Band
+            </button>
+          </div>
 
-        {filterType === 'band' && (
-          <select
-            value={filterValue}
-            onChange={(e) => setFilterValue(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px',
-              fontSize: '16px',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
-            }}
-          >
-            <option value="">Select a band...</option>
-            {bands.map(band => (
-              <option key={band} value={band}>{band}</option>
-            ))}
-          </select>
-        )}
+          {filterType === 'date' && (
+            <select
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                borderRadius: '12px',
+                border: '1px solid #dee2e6',
+                backgroundColor: 'white',
+                color: '#495057',
+                fontWeight: '500'
+              }}
+            >
+              <option value="">Select a date...</option>
+              {uniqueDates.map(date => (
+                <option key={date} value={date}>{formatDate(date)}</option>
+              ))}
+            </select>
+          )}
+
+          {filterType === 'stage' && (
+            <select
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                borderRadius: '12px',
+                border: '1px solid #dee2e6',
+                backgroundColor: 'white',
+                color: '#495057',
+                fontWeight: '500'
+              }}
+            >
+              <option value="">Select a stage...</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>
+                  {loc.name}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {filterType === 'band' && (
+            <select
+              value={filterValue}
+              onChange={(e) => setFilterValue(e.target.value)}
+              style={{
+                width: '100%',
+                padding: '12px',
+                fontSize: '16px',
+                borderRadius: '12px',
+                border: '1px solid #dee2e6',
+                backgroundColor: 'white',
+                color: '#495057',
+                fontWeight: '500'
+              }}
+            >
+              <option value="">Select a band...</option>
+              {bands.map(band => (
+                <option key={band} value={band}>{band}</option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Performance Count */}
+        <div style={{
+          padding: '12px 16px',
+          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+          borderRadius: '12px',
+          marginBottom: '20px',
+          fontSize: '15px',
+          fontWeight: '600',
+          color: '#495057'
+        }}>
+          Total Performances: {filteredPerformances.length}
+          {filterType !== 'all' && ` (filtered from ${performances.length})`}
+        </div>
       </div>
 
-      <div style={{
-        padding: '10px 15px',
-        backgroundColor: '#f0f0f0',
-        borderRadius: '5px',
-        marginBottom: '15px'
-      }}>
-        <strong>Total Performances:</strong> {filteredPerformances.length}
-        {filterType !== 'all' && ` (filtered from ${performances.length})`}
-      </div>
-
+      {/* Performances Display */}
       {Object.keys(groupedPerformances).length === 0 ? (
         <div style={{
-          padding: '40px',
+          background: 'white',
+          borderRadius: '20px',
+          padding: '60px 40px',
           textAlign: 'center',
-          backgroundColor: 'white',
-          borderRadius: '5px',
-          border: '1px solid #ddd'
+          boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
         }}>
-          <p style={{ fontSize: '18px', color: '#999' }}>
+          <div style={{ fontSize: '48px', marginBottom: '16px' }}>🎵</div>
+          <p style={{ fontSize: '18px', color: '#999', margin: 0 }}>
             No performances scheduled
             {filterType !== 'all' && ' matching your filter'}
           </p>
         </div>
       ) : (
         Object.entries(groupedPerformances).map(([bandName, perfs]) => (
-          <div key={bandName} style={{ marginBottom: '30px' }}>
+          <div key={bandName} style={{ marginBottom: '24px' }}>
             <h3 style={{
-              padding: '10px 15px',
-              backgroundColor: '#0066cc',
+              padding: '16px 20px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               color: 'white',
-              borderRadius: '5px',
-              marginBottom: '10px'
+              borderRadius: '16px',
+              marginBottom: '12px',
+              fontSize: '20px',
+              fontWeight: '700',
+              boxShadow: '0 4px 12px rgba(102,126,234,0.3)'
             }}>
-              {bandName} ({perfs.length} performance{perfs.length !== 1 ? 's' : ''})
+              🎤 {bandName} ({perfs.length} performance{perfs.length !== 1 ? 's' : ''})
             </h3>
-
             {perfs.map(perf => {
               const locationInfo = getLocationInfo(perf.location_id);
               const isEditing = editingPerf === perf.id;
@@ -350,18 +389,19 @@ export default function Schedule({ locationColors }) {
                 <div
                   key={perf.id}
                   style={{
-                    padding: '15px',
-                    marginBottom: '10px',
-                    backgroundColor: 'white',
-                    borderRadius: '5px',
-                    border: '1px solid #ddd'
+                    padding: '20px',
+                    marginBottom: '12px',
+                    background: 'white',
+                    borderRadius: '16px',
+                    border: '1px solid #e0e0e0',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
                   }}
                 >
                   {isEditing ? (
                     <div>
-                      <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                      <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600', color: '#495057' }}>
                             Stage/Location
                           </label>
                           <select
@@ -369,22 +409,24 @@ export default function Schedule({ locationColors }) {
                             onChange={(e) => setEditForm({ ...editForm, location_id: e.target.value })}
                             style={{
                               width: '100%',
-                              padding: '8px',
-                              fontSize: '14px',
-                              borderRadius: '5px',
-                              border: '1px solid #ddd'
+                              padding: '10px',
+                              fontSize: '15px',
+                              borderRadius: '10px',
+                              border: '1px solid #dee2e6',
+                              backgroundColor: 'white',
+                              color: '#495057'
                             }}
                           >
                             <option value="">Select location...</option>
                             {locations.map(loc => (
                               <option key={loc.id} value={loc.id}>
-                                {loc.emoji ? `${loc.emoji} ` : ''}{loc.name}
+                                {loc.name}
                               </option>
                             ))}
                           </select>
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                        <div style={{ flex: 1, minWidth: '150px' }}>
+                          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600', color: '#495057' }}>
                             Date
                           </label>
                           <input
@@ -393,15 +435,17 @@ export default function Schedule({ locationColors }) {
                             onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
                             style={{
                               width: '100%',
-                              padding: '8px',
-                              fontSize: '14px',
-                              borderRadius: '5px',
-                              border: '1px solid #ddd'
+                              padding: '10px',
+                              fontSize: '15px',
+                              borderRadius: '10px',
+                              border: '1px solid #dee2e6',
+                              backgroundColor: 'white',
+                              color: '#495057'
                             }}
                           />
                         </div>
-                        <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                        <div style={{ flex: 1, minWidth: '120px' }}>
+                          <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600', color: '#495057' }}>
                             Time
                           </label>
                           <input
@@ -410,10 +454,12 @@ export default function Schedule({ locationColors }) {
                             onChange={(e) => setEditForm({ ...editForm, time: e.target.value })}
                             style={{
                               width: '100%',
-                              padding: '8px',
-                              fontSize: '14px',
-                              borderRadius: '5px',
-                              border: '1px solid #ddd'
+                              padding: '10px',
+                              fontSize: '15px',
+                              borderRadius: '10px',
+                              border: '1px solid #dee2e6',
+                              backgroundColor: 'white',
+                              color: '#495057'
                             }}
                           />
                         </div>
@@ -422,27 +468,30 @@ export default function Schedule({ locationColors }) {
                         <button
                           onClick={() => handleSaveEdit(perf.id)}
                           style={{
-                            padding: '8px 15px',
-                            backgroundColor: '#2ecc71',
+                            padding: '10px 20px',
+                            background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '5px',
+                            borderRadius: '10px',
                             cursor: 'pointer',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            boxShadow: '0 2px 8px rgba(81,207,102,0.3)'
                           }}
                         >
-                          Save
+                          ✓ Save
                         </button>
                         <button
                           onClick={handleCancelEdit}
                           style={{
-                            padding: '8px 15px',
-                            backgroundColor: '#95a5a6',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '5px',
+                            padding: '10px 20px',
+                            background: '#f8f9fa',
+                            color: '#495057',
+                            border: '1px solid #dee2e6',
+                            borderRadius: '10px',
                             cursor: 'pointer',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            fontWeight: '600'
                           }}
                         >
                           Cancel
@@ -450,42 +499,47 @@ export default function Schedule({ locationColors }) {
                       </div>
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div style={{ flex: 1 }}>
-                        <div style={{ marginBottom: '5px' }}>
-                          <span
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '16px', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '200px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                          <div
                             style={{
-                              display: 'inline-block',
-                              padding: '4px 10px',
-                              backgroundColor: locationInfo.color,
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              padding: '6px 14px',
+                              background: `linear-gradient(135deg, ${locationInfo.color} 0%, ${locationInfo.color}dd 100%)`,
                               color: 'white',
-                              borderRadius: '3px',
+                              borderRadius: '10px',
                               fontSize: '14px',
-                              fontWeight: 'bold',
-                              marginRight: '10px'
+                              fontWeight: '600',
+                              boxShadow: `0 2px 6px ${locationInfo.color}40`
                             }}
                           >
-                            {locationInfo.emoji && `${locationInfo.emoji} `}{locationInfo.name}
+                            <span>📍</span>
+                            <span>{locationInfo.name}</span>
+                          </div>
+                          <span style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>
+                            📅 {formatDate(perf.date)}
                           </span>
-                          <span style={{ fontSize: '16px', fontWeight: 'bold' }}>
-                            {formatDate(perf.date)}
-                          </span>
-                          <span style={{ fontSize: '16px', marginLeft: '10px' }}>
-                            {formatTime(perf.time)}
+                          <span style={{ fontSize: '16px', fontWeight: '600', color: '#1a1a1a' }}>
+                            🕒 {formatTime(perf.time)}
                           </span>
                         </div>
                       </div>
-                      <div style={{ display: 'flex', gap: '10px' }}>
+                      <div style={{ display: 'flex', gap: '8px' }}>
                         <button
                           onClick={() => handleEdit(perf)}
                           style={{
-                            padding: '8px 15px',
-                            backgroundColor: '#0066cc',
+                            padding: '10px 16px',
+                            background: 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '5px',
+                            borderRadius: '10px',
                             cursor: 'pointer',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            boxShadow: '0 2px 8px rgba(77,171,247,0.3)'
                           }}
                         >
                           ✏️ Edit
@@ -493,13 +547,15 @@ export default function Schedule({ locationColors }) {
                         <button
                           onClick={() => handleDelete(perf.id, bandName)}
                           style={{
-                            padding: '8px 15px',
-                            backgroundColor: '#e74c3c',
+                            padding: '10px 16px',
+                            background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
                             color: 'white',
                             border: 'none',
-                            borderRadius: '5px',
+                            borderRadius: '10px',
                             cursor: 'pointer',
-                            fontSize: '14px'
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            boxShadow: '0 2px 8px rgba(255,107,107,0.3)'
                           }}
                         >
                           🗑️ Delete

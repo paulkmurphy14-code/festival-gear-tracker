@@ -4,9 +4,9 @@ import { db } from '../db';
 export default function LocationManager({ onUpdate }) {
   const [locations, setLocations] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', color: '#0066cc', emoji: '' });
+  const [editForm, setEditForm] = useState({ name: '', color: '#0066cc' });
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newLocation, setNewLocation] = useState({ name: '', color: '#0066cc', emoji: '' });
+  const [newLocation, setNewLocation] = useState({ name: '', color: '#0066cc' });
   const [message, setMessage] = useState('');
 
   const colorPresets = [
@@ -19,12 +19,6 @@ export default function LocationManager({ onUpdate }) {
     { name: 'Yellow', value: '#f1c40f' },
     { name: 'Teal', value: '#1abc9c' },
     { name: 'Gray', value: '#95a5a6' }
-  ];
-
-  const emojiPresets = [
-    '🎸', '🎤', '🎧', '🎵', '🎶', '🎹', '🥁', '🎺', '🎷', '🎻',
-    '📦', '🏠', '🚚', '📋', '🎪', '🎭', '🎬', '🎨', '⭐', '✨',
-    '🔥', '💡', '🎯', '🎲', '🎰', '🎮', '🕹️', '🎳', '🏆', '🥇'
   ];
 
   useEffect(() => {
@@ -48,13 +42,13 @@ export default function LocationManager({ onUpdate }) {
         name: newLocation.name.trim(),
         type: 'custom',
         color: newLocation.color,
-        emoji: newLocation.emoji
+        emoji: '' // Keep field but don't expose in UI
       });
 
       setMessage('✓ Location added successfully!');
       setTimeout(() => setMessage(''), 3000);
       
-      setNewLocation({ name: '', color: '#0066cc', emoji: '' });
+      setNewLocation({ name: '', color: '#0066cc' });
       setShowAddForm(false);
       loadLocations();
       
@@ -69,14 +63,13 @@ export default function LocationManager({ onUpdate }) {
     setEditingId(location.id);
     setEditForm({
       name: location.name,
-      color: location.color,
-      emoji: location.emoji || ''
+      color: location.color
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditForm({ name: '', color: '#0066cc', emoji: '' });
+    setEditForm({ name: '', color: '#0066cc' });
   };
 
   const saveEdit = async (id) => {
@@ -89,8 +82,7 @@ export default function LocationManager({ onUpdate }) {
     try {
       await db.locations.update(id, {
         name: editForm.name.trim(),
-        color: editForm.color,
-        emoji: editForm.emoji
+        color: editForm.color
       });
 
       setMessage('✓ Location updated successfully!');
@@ -111,13 +103,13 @@ export default function LocationManager({ onUpdate }) {
     const performancesAtLocation = await db.performances.where('location_id').equals(id).count();
 
     let warningMessage = 'Are you sure you want to delete this location?';
-    
+
     if (gearAtLocation > 0 || performancesAtLocation > 0) {
       warningMessage = `WARNING: This location has ${gearAtLocation} gear item(s) and ${performancesAtLocation} scheduled performance(s).\n\nDeleting this location will:\n- Remove location from all gear items\n- Delete all performances at this location\n\nAre you sure you want to continue?`;
     }
 
     const confirmed = window.confirm(warningMessage);
-    
+
     if (confirmed) {
       try {
         await db.gear.where('current_location_id').equals(id).modify({ current_location_id: null });
@@ -139,7 +131,7 @@ export default function LocationManager({ onUpdate }) {
 
   return (
     <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '20px' }}>Manage Locations</h2>
+      <h2 style={{ marginBottom: '20px', color: '#1a1a1a' }}>Manage Locations</h2>
 
       {message && (
         <div style={{
@@ -181,10 +173,10 @@ export default function LocationManager({ onUpdate }) {
           marginBottom: '30px',
           border: '2px solid #0066cc'
         }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px' }}>Add New Location</h3>
+          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#1a1a1a' }}>Add New Location</h3>
           
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
               Location Name
             </label>
             <input
@@ -198,73 +190,15 @@ export default function LocationManager({ onUpdate }) {
                 fontSize: '16px',
                 borderRadius: '5px',
                 border: '1px solid #ddd',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Emoji (Optional)
-            </label>
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
-              {emojiPresets.map(emoji => (
-                <button
-                  key={emoji}
-                  onClick={() => setNewLocation({ ...newLocation, emoji: emoji })}
-                  style={{
-                    width: '45px',
-                    height: '45px',
-                    fontSize: '24px',
-                    backgroundColor: newLocation.emoji === emoji ? '#e3f2fd' : 'white',
-                    border: newLocation.emoji === emoji ? '2px solid #0066cc' : '1px solid #ddd',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-              <button
-                onClick={() => setNewLocation({ ...newLocation, emoji: '' })}
-                style={{
-                  width: '45px',
-                  height: '45px',
-                  fontSize: '20px',
-                  backgroundColor: newLocation.emoji === '' ? '#e3f2fd' : 'white',
-                  border: newLocation.emoji === '' ? '2px solid #0066cc' : '1px solid #ddd',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  color: '#999'
-                }}
-                title="No emoji"
-              >
-                ∅
-              </button>
-            </div>
-            <input
-              type="text"
-              value={newLocation.emoji}
-              onChange={(e) => setNewLocation({ ...newLocation, emoji: e.target.value })}
-              placeholder="Or type/paste any emoji"
-              maxLength="2"
-              style={{
-                width: '100%',
-                padding: '10px',
-                fontSize: '24px',
-                borderRadius: '5px',
-                border: '1px solid #ddd',
                 boxSizing: 'border-box',
-                textAlign: 'center'
+                color: '#333',
+                backgroundColor: '#fff'
               }}
             />
           </div>
 
           <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
               Color
             </label>
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
@@ -290,7 +224,7 @@ export default function LocationManager({ onUpdate }) {
               ))}
             </div>
             <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <label style={{ fontWeight: 'normal' }}>Custom:</label>
+              <label style={{ fontWeight: 'normal', color: '#333' }}>Custom:</label>
               <input
                 type="color"
                 value={newLocation.color}
@@ -321,7 +255,7 @@ export default function LocationManager({ onUpdate }) {
             <button
               onClick={() => {
                 setShowAddForm(false);
-                setNewLocation({ name: '', color: '#0066cc', emoji: '' });
+                setNewLocation({ name: '', color: '#0066cc' });
               }}
               style={{
                 padding: '10px 20px',
@@ -340,7 +274,7 @@ export default function LocationManager({ onUpdate }) {
       )}
 
       <div>
-        <h3 style={{ marginBottom: '15px' }}>Current Locations ({locations.length})</h3>
+        <h3 style={{ marginBottom: '15px', color: '#1a1a1a' }}>Current Locations ({locations.length})</h3>
         {locations.map(location => (
           <div
             key={location.id}
@@ -365,68 +299,15 @@ export default function LocationManager({ onUpdate }) {
                       fontSize: '16px',
                       borderRadius: '5px',
                       border: '1px solid #ddd',
-                      boxSizing: 'border-box'
-                    }}
-                  />
-                </div>
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
-                    Emoji
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '8px' }}>
-                    {emojiPresets.map(emoji => (
-                      <button
-                        key={emoji}
-                        onClick={() => setEditForm({ ...editForm, emoji: emoji })}
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          fontSize: '20px',
-                          backgroundColor: editForm.emoji === emoji ? '#e3f2fd' : 'white',
-                          border: editForm.emoji === emoji ? '2px solid #0066cc' : '1px solid #ddd',
-                          borderRadius: '5px',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        {emoji}
-                      </button>
-                    ))}
-                    <button
-                      onClick={() => setEditForm({ ...editForm, emoji: '' })}
-                      style={{
-                        width: '40px',
-                        height: '40px',
-                        fontSize: '18px',
-                        backgroundColor: editForm.emoji === '' ? '#e3f2fd' : 'white',
-                        border: editForm.emoji === '' ? '2px solid #0066cc' : '1px solid #ddd',
-                        borderRadius: '5px',
-                        cursor: 'pointer',
-                        color: '#999'
-                      }}
-                      title="No emoji"
-                    >
-                      ∅
-                    </button>
-                  </div>
-                  <input
-                    type="text"
-                    value={editForm.emoji}
-                    onChange={(e) => setEditForm({ ...editForm, emoji: e.target.value })}
-                    placeholder="Or type/paste any emoji"
-                    maxLength="2"
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      fontSize: '20px',
-                      borderRadius: '5px',
-                      border: '1px solid #ddd',
                       boxSizing: 'border-box',
-                      textAlign: 'center'
+                      color: '#333',
+                      backgroundColor: '#fff'
                     }}
                   />
                 </div>
+
                 <div style={{ marginBottom: '10px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold' }}>
+                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold', color: '#333' }}>
                     Color
                   </label>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
@@ -452,7 +333,7 @@ export default function LocationManager({ onUpdate }) {
                     ))}
                   </div>
                   <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label style={{ fontSize: '14px' }}>Custom:</label>
+                    <label style={{ fontSize: '14px', color: '#333' }}>Custom:</label>
                     <input
                       type="color"
                       value={editForm.color}
@@ -464,6 +345,7 @@ export default function LocationManager({ onUpdate }) {
                     </span>
                   </div>
                 </div>
+
                 <div style={{ display: 'flex', gap: '10px' }}>
                   <button
                     onClick={() => saveEdit(location.id)}
@@ -504,18 +386,12 @@ export default function LocationManager({ onUpdate }) {
                       height: '50px',
                       backgroundColor: location.color,
                       borderRadius: '5px',
-                      border: '2px solid #ddd',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      fontSize: '24px'
+                      border: '2px solid #ddd'
                     }}
-                  >
-                    {location.emoji || ''}
-                  </div>
+                  />
                   <div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold' }}>
-                      {location.emoji ? `${location.emoji} ` : ''}{location.name}
+                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a1a1a' }}>
+                      {location.name}
                     </div>
                     <div style={{ fontSize: '14px', color: '#666' }}>
                       Color: {location.color}
