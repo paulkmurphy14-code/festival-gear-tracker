@@ -79,7 +79,7 @@ export default function RegisterGear() {
           lastUpdated: new Date()
         });
 
-        const qrCode = await generateQRCode(`GEAR:${gearId}`);
+        const qrCode = await generateQRCode(gearId);
         await db.gear.update(gearId, { qr_code: qrCode });
 
         registered.push({
