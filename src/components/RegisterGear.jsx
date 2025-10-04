@@ -66,7 +66,6 @@ export default function RegisterGear() {
 
     try {
       const registered = [];
-
       for (const item of validItems) {
         const gearId = await db.gear.add({
           band_id: bandName.trim(),
@@ -105,7 +104,6 @@ export default function RegisterGear() {
       setRegisteredItems(registered);
       setMessage(`✓ Registered ${registered.length} item(s) successfully!`);
       setTimeout(() => setMessage(''), 3000);
-
     } catch (error) {
       console.error('Error registering gear:', error);
       setMessage('❌ Error registering items');
@@ -127,7 +125,7 @@ export default function RegisterGear() {
 
   return (
     <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <h2>Register Gear (Chaos Gate)</h2>
+      <h2 style={{ marginBottom: '20px', color: '#1a1a1a' }}>Register Gear (Chaos Gate)</h2>
 
       {message && (
         <div style={{
@@ -148,7 +146,8 @@ export default function RegisterGear() {
             <label style={{
               display: 'block',
               marginBottom: '5px',
-              fontWeight: 'bold'
+              fontWeight: 'bold',
+              color: '#333'
             }}>
               Band Name
             </label>
@@ -163,7 +162,9 @@ export default function RegisterGear() {
                 fontSize: '16px',
                 borderRadius: '5px',
                 border: '1px solid #ddd',
-                boxSizing: 'border-box'
+                boxSizing: 'border-box',
+                color: '#333',
+                backgroundColor: '#fff'
               }}
             />
           </div>
@@ -175,7 +176,7 @@ export default function RegisterGear() {
               alignItems: 'center',
               marginBottom: '10px'
             }}>
-              <label style={{ fontWeight: 'bold' }}>Items</label>
+              <label style={{ fontWeight: 'bold', color: '#333' }}>Items</label>
               <button
                 onClick={handleAddItem}
                 style={{
@@ -204,7 +205,9 @@ export default function RegisterGear() {
                     padding: '10px',
                     fontSize: '16px',
                     borderRadius: '5px',
-                    border: '1px solid #ddd'
+                    border: '1px solid #ddd',
+                    color: '#333',
+                    backgroundColor: '#fff'
                   }}
                 />
                 {items.length > 1 && (
@@ -233,7 +236,7 @@ export default function RegisterGear() {
               alignItems: 'center',
               marginBottom: '10px'
             }}>
-              <label style={{ fontWeight: 'bold' }}>Performance Schedule (Optional)</label>
+              <label style={{ fontWeight: 'bold', color: '#333' }}>Performance Schedule (Optional)</label>
               <button
                 onClick={handleAddPerformance}
                 style={{
@@ -263,7 +266,7 @@ export default function RegisterGear() {
               >
                 <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
                       Stage/Location
                     </label>
                     <select
@@ -274,7 +277,9 @@ export default function RegisterGear() {
                         padding: '8px',
                         fontSize: '14px',
                         borderRadius: '5px',
-                        border: '1px solid #ddd'
+                        border: '1px solid #ddd',
+                        color: '#333',
+                        backgroundColor: '#fff'
                       }}
                     >
                       <option value="">Select location...</option>
@@ -286,7 +291,7 @@ export default function RegisterGear() {
                     </select>
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
                       Date
                     </label>
                     <input
@@ -298,12 +303,14 @@ export default function RegisterGear() {
                         padding: '8px',
                         fontSize: '14px',
                         borderRadius: '5px',
-                        border: '1px solid #ddd'
+                        border: '1px solid #ddd',
+                        color: '#333',
+                        backgroundColor: '#fff'
                       }}
                     />
                   </div>
                   <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px' }}>
+                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
                       Time
                     </label>
                     <input
@@ -315,7 +322,9 @@ export default function RegisterGear() {
                         padding: '8px',
                         fontSize: '14px',
                         borderRadius: '5px',
-                        border: '1px solid #ddd'
+                        border: '1px solid #ddd',
+                        color: '#333',
+                        backgroundColor: '#fff'
                       }}
                     />
                   </div>
@@ -368,7 +377,7 @@ export default function RegisterGear() {
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <h3>Print Layout</h3>
+            <h3 style={{ color: '#1a1a1a' }}>Print Layout</h3>
             <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
               <button
                 onClick={() => setPrintLayout('sheet')}
@@ -437,7 +446,7 @@ export default function RegisterGear() {
           </div>
 
           <div className="no-print">
-            <h3>Preview ({registeredItems.length} labels)</h3>
+            <h3 style={{ color: '#1a1a1a' }}>Preview ({registeredItems.length} labels)</h3>
             <div style={{
               border: '2px dashed #ddd',
               padding: '20px',
@@ -450,7 +459,8 @@ export default function RegisterGear() {
                   marginBottom: '10px',
                   backgroundColor: 'white',
                   borderRadius: '5px',
-                  border: '1px solid #ddd'
+                  border: '1px solid #ddd',
+                  color: '#333'
                 }}>
                   <strong>{item.band}</strong> - {item.description}
                 </div>
@@ -463,7 +473,6 @@ export default function RegisterGear() {
             </div>
           </div>
 
-          {/* Print View */}
           <div className="print-only">
             {registeredItems.map(item => (
               <div
@@ -507,24 +516,28 @@ export default function RegisterGear() {
           </div>
 
           <style>{`
-           @media print {
-  body * {
-    visibility: hidden;
-  }
-  
-  .print-only, .print-only * {
-    visibility: visible;
-  }
-  
-  .print-only {
-    position: absolute;
-    left: 0;
-    top: 0;
-  }
+            @media print {
+              body * {
+                visibility: hidden;
+              }
+              
+              .print-only, .print-only * {
+                visibility: visible;
+              }
+              
+              .print-only {
+                position: absolute;
+                left: 0;
+                top: 0;
+              }
 
-  .no-print {
-    display: none !important;
-  }
+              .no-print {
+                display: none !important;
+              }
+              
+              .print-only {
+                display: block !important;
+              }
 
               @page {
                 size: ${printLayout === 'pages' ? '74mm 105mm' : 'A4'};
@@ -541,7 +554,6 @@ export default function RegisterGear() {
                   page-break-after: always;
                   page-break-inside: avoid;
                 }
-
                 .print-label-small {
                   display: none;
                 }
@@ -555,7 +567,6 @@ export default function RegisterGear() {
                   vertical-align: top;
                   page-break-inside: avoid;
                 }
-
                 .print-label-page {
                   display: none;
                 }

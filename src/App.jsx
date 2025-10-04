@@ -86,26 +86,36 @@ function App() {
   }, []);
 
   const handleScan = useCallback(async (qrData) => {
-    console.log('handleScan called with:', qrData);
+  console.log('handleScan called with:', qrData);
+  
+  if (qrData && qrData.startsWith('GEAR:')) {
+    const gearIdString = qrData.replace('GEAR:', '').trim();
+    const gearId = parseInt(gearIdString, 10);
     
-    if (qrData.startsWith('GEAR:')) {
-      const gearId = parseInt(qrData.replace('GEAR:', ''));
-      
-      try {
-        const gear = await db.gear.get(gearId);
-        
-        if (gear) {
-          setScannedGear(gear);
-          setActiveTab('scan');
-        } else {
-          alert('Gear item not found in database');
-        }
-      } catch (error) {
-        console.error('Error fetching gear:', error);
-        alert('Error retrieving gear item');
-      }
+    console.log('Parsed gear ID:', gearId);
+    
+    if (isNaN(gearId)) {
+      alert('Invalid QR code format');
+      return;
     }
-  }, []);
+    
+    try {
+      const gear = await db.gear.get(gearId);
+      
+      if (gear) {
+        setScannedGear(gear);
+        setActiveTab('scan');
+      } else {
+        alert(`Gear item ID ${gearId} not found in database`);
+      }
+    } catch (error) {
+      console.error('Error fetching gear:', error);
+      alert('Error retrieving gear item: ' + error.message);
+    }
+  } else {
+    alert('QR code does not match expected format (GEAR:ID)');
+  }
+}, []);
 
   const handleLocationSelect = useCallback(async (locationId) => {
     if (!scannedGear) return;
