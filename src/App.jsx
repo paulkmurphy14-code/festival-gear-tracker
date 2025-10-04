@@ -46,15 +46,17 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-const PageContainer = ({ children, isHome = false }) => (
-  <div style={{
-    width: '100%',
-    maxWidth: '600px',
-    margin: '0 auto',
-    padding: isHome ? '15px' : '20px',
-    boxSizing: 'border-box'
-  }}>
-    {children}
+const PageContainer = ({ children, isHome = false }) => ( 
+  <div style={{ 
+    width: isHome ? '100%' : '100%',
+    maxWidth: isHome ? '100%' : '600px',
+    margin: '0 auto', 
+    padding: isHome ? '10px' : '20px',
+    boxSizing: 'border-box',
+    height: isHome ? 'calc(100vh - 80px)' : 'auto',
+    overflow: isHome ? 'auto' : 'visible'
+  }}> 
+    {children} 
   </div>
 );
 
@@ -311,11 +313,15 @@ function App() {
             </p>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: '1fr 1fr',
+            gap: '10px'
+            }}>
             <button
               onClick={() => setActiveTab('scanner')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
                 color: 'white',
                 border: 'none',
@@ -341,7 +347,7 @@ function App() {
             <button
               onClick={() => setActiveTab('chaos')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
                 color: 'white',
                 border: 'none',
@@ -367,7 +373,7 @@ function App() {
             <button
               onClick={() => setActiveTab('gear')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
                 color: 'white',
                 border: 'none',
@@ -393,7 +399,7 @@ function App() {
             <button
               onClick={() => setActiveTab('schedule')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #ffd43b 0%, #fab005 100%)',
                 color: 'white',
                 border: 'none',
@@ -419,7 +425,7 @@ function App() {
             <button
               onClick={() => setActiveTab('prepared')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
                 color: 'white',
                 border: 'none',
@@ -445,7 +451,7 @@ function App() {
             <button
               onClick={() => setActiveTab('locations')}
               style={{
-                padding: '24px',
+                padding: '16px',
                 background: 'linear-gradient(135deg, #a3a3a3 0%, #737373 100%)',
                 color: 'white',
                 border: 'none',
