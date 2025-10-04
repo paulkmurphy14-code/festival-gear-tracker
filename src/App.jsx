@@ -48,13 +48,11 @@ const GlobalStyles = () => (
 
 const PageContainer = ({ children, isHome = false }) => ( 
   <div style={{ 
-    width: isHome ? '100%' : '100%',
-    maxWidth: isHome ? '100%' : '600px',
+    width: '100%',
+    maxWidth: '600px',  // Same for both now
     margin: '0 auto', 
     padding: isHome ? '10px' : '20px',
-    boxSizing: 'border-box',
-    height: isHome ? 'calc(100vh - 80px)' : 'auto',
-    overflow: isHome ? 'auto' : 'visible'
+    boxSizing: 'border-box'
   }}> 
     {children} 
   </div>
