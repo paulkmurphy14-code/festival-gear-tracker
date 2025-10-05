@@ -11,6 +11,7 @@ export default function GearList({ locationColors }) {
   const [filterValue, setFilterValue] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [printLayout, setPrintLayout] = useState('sheet');
+  const [itemToPrint, setItemToPrint] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -68,52 +69,14 @@ export default function GearList({ locationColors }) {
   };
 
   const handleReprint = (item) => {
-  const printWindow = window.open('', '_blank', 'width=800,height=600');
-
-  printWindow.document.write(`
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Print Label - ${item.description}</title>
-      <style>
-        @page { size: 74mm 105mm; margin: 0; }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
-        .label {
-          width: 74mm; height: 105mm; padding: 5mm;
-          display: flex; flex-direction: column;
-          align-items: center; justify-content: center;
-        }
-        .qr-code { width: 50mm; height: 50mm; margin-bottom: 3mm; }
-        .band-name { font-size: 5mm; font-weight: bold; margin-bottom: 2mm; text-align: center; width: 100%; }
-        .description { font-size: 4.5mm; margin-bottom: 2mm; text-align: center; width: 100%; }
-        .id { font-size: 3.5mm; color: #666; text-align: center; width: 100%; }
-        @media print { body { width: 74mm; height: 105mm; } }
-      </style>
-    </head>
-    <body>
-      <div class="label">
-        <img src="${item.qr_code}" alt="QR Code" class="qr-code" />
-        <div class="band-name">${item.band_id}</div>
-        <div class="description">${item.description}</div>
-        <div class="id">ID: ${item.id}</div>
-      </div>
-      <script>
-        window.onload = function() {
-          setTimeout(function() {
-            window.print();
-          }, 250);
-        };
-        window.onafterprint = function() {
-          window.close();
-        };
-      </script>
-    </body>
-    </html>
-  `);
-
-  printWindow.document.close();
-};
+    setItemToPrint(item);
+    setTimeout(() => {
+      window.print();
+      setTimeout(() => {
+        setItemToPrint(null);
+      }, 100);
+    }, 100);
+  };
 
   const handleSaveEdit = async () => {
     setEditingItem(null);
@@ -204,7 +167,6 @@ export default function GearList({ locationColors }) {
       >
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
           <div style={{ flex: 1 }}>
-            {/* Item name and checkbox */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
               <input
                 type="checkbox"
@@ -227,7 +189,6 @@ export default function GearList({ locationColors }) {
               </div>
             </div>
 
-            {/* Enhanced Status Badge */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               {item.checked_out ? (
                 <div style={{
@@ -302,7 +263,6 @@ export default function GearList({ locationColors }) {
             </div>
           </div>
 
-          {/* Action Buttons */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '100px' }}>
             <button
               onClick={() => handleReprint(item)}
@@ -400,326 +360,328 @@ export default function GearList({ locationColors }) {
           Gear Inventory
         </h2>
 
-        {/* Filter Section */}
-        <div style={{ marginBottom: '20px' }}>
-          <div style={{ 
-            fontSize: '15px', 
-            fontWeight: '600', 
-            marginBottom: '12px',
-            color: '#495057'
-          }}>
-            Filter by:
-          </div>
-          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-            <button
-              onClick={() => {
-                setFilterType('all');
-                setFilterValue('');
-              }}
-              style={{
-                padding: '10px 20px',
-                background: filterType === 'all' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                color: filterType === 'all' ? 'white' : '#495057',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: filterType === 'all' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              Show All
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('band');
-                setFilterValue('');
-              }}
-              style={{
-                padding: '10px 20px',
-                background: filterType === 'band' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                color: filterType === 'band' ? 'white' : '#495057',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: filterType === 'band' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              By Band
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('location');
-                setFilterValue('');
-              }}
-              style={{
-                padding: '10px 20px',
-                background: filterType === 'location' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                color: filterType === 'location' ? 'white' : '#495057',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: filterType === 'location' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              By Location
-            </button>
-            <button
-              onClick={() => {
-                setFilterType('status');
-                setFilterValue('');
-              }}
-              style={{
-                padding: '10px 20px',
-                background: filterType === 'status' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                color: filterType === 'status' ? 'white' : '#495057',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: filterType === 'status' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                transition: 'all 0.2s ease'
-              }}
-            >
-              By Status
-            </button>
-          </div>
-
-          {filterType === 'band' && (
-            <select
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                borderRadius: '12px',
-                border: '1px solid #dee2e6',
-                backgroundColor: 'white',
-                color: '#495057',
-                fontWeight: '500'
-              }}
-            >
-              <option value="">Select a band...</option>
-              {bands.map(band => (
-                <option key={band} value={band}>{band}</option>
-              ))}
-            </select>
-          )}
-
-          {filterType === 'location' && (
-            <select
-              value={filterValue}
-              onChange={(e) => setFilterValue(e.target.value)}
-              style={{
-                width: '100%',
-                padding: '12px',
-                fontSize: '16px',
-                borderRadius: '12px',
-                border: '1px solid #dee2e6',
-                backgroundColor: 'white',
-                color: '#495057',
-                fontWeight: '500'
-              }}
-            >
-              <option value="">Select a location...</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name}
-                </option>
-              ))}
-            </select>
-          )}
-
-          {filterType === 'status' && (
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+        <div className="no-print">
+          {/* Filter Section - same as before */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ 
+              fontSize: '15px', 
+              fontWeight: '600', 
+              marginBottom: '12px',
+              color: '#495057'
+            }}>
+              Filter by:
+            </div>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
               <button
-                onClick={() => setFilterValue('active')}
+                onClick={() => {
+                  setFilterType('all');
+                  setFilterValue('');
+                }}
                 style={{
                   padding: '10px 20px',
-                  background: filterValue === 'active' ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : '#f8f9fa',
-                  color: filterValue === 'active' ? 'white' : '#51cf66',
-                  border: filterValue === 'active' ? 'none' : '2px solid #51cf66',
+                  background: filterType === 'all' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                  color: filterType === 'all' ? 'white' : '#495057',
+                  border: 'none',
                   borderRadius: '10px',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '600',
-                  boxShadow: filterValue === 'active' ? '0 2px 8px rgba(81,207,102,0.3)' : 'none'
+                  boxShadow: filterType === 'all' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                📍 Active (at location)
+                Show All
               </button>
               <button
-                onClick={() => setFilterValue('in-transit')}
+                onClick={() => {
+                  setFilterType('band');
+                  setFilterValue('');
+                }}
                 style={{
                   padding: '10px 20px',
-                  background: filterValue === 'in-transit' ? 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)' : '#f8f9fa',
-                  color: filterValue === 'in-transit' ? 'white' : '#ffa94d',
-                  border: filterValue === 'in-transit' ? 'none' : '2px solid #ffa94d',
+                  background: filterType === 'band' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                  color: filterType === 'band' ? 'white' : '#495057',
+                  border: 'none',
                   borderRadius: '10px',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '600',
-                  boxShadow: filterValue === 'in-transit' ? '0 2px 8px rgba(255,169,77,0.3)' : 'none'
+                  boxShadow: filterType === 'band' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                🚚 In Transit
+                By Band
               </button>
               <button
-                onClick={() => setFilterValue('checked-out')}
+                onClick={() => {
+                  setFilterType('location');
+                  setFilterValue('');
+                }}
                 style={{
                   padding: '10px 20px',
-                  background: filterValue === 'checked-out' ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : '#f8f9fa',
-                  color: filterValue === 'checked-out' ? 'white' : '#868e96',
-                  border: filterValue === 'checked-out' ? 'none' : '2px solid #868e96',
+                  background: filterType === 'location' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                  color: filterType === 'location' ? 'white' : '#495057',
+                  border: 'none',
                   borderRadius: '10px',
                   cursor: 'pointer',
                   fontSize: '14px',
                   fontWeight: '600',
-                  boxShadow: filterValue === 'checked-out' ? '0 2px 8px rgba(134,142,150,0.3)' : 'none'
+                  boxShadow: filterType === 'location' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                  transition: 'all 0.2s ease'
                 }}
               >
-                🎸 Checked Out
+                By Location
+              </button>
+              <button
+                onClick={() => {
+                  setFilterType('status');
+                  setFilterValue('');
+                }}
+                style={{
+                  padding: '10px 20px',
+                  background: filterType === 'status' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                  color: filterType === 'status' ? 'white' : '#495057',
+                  border: 'none',
+                  borderRadius: '10px',
+                  cursor: 'pointer',
+                  fontSize: '14px',
+                  fontWeight: '600',
+                  boxShadow: filterType === 'status' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                By Status
               </button>
             </div>
-          )}
-        </div>
 
-        {/* Bulk Selection */}
-        {filterType !== 'all' && (
-          <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-            <button
-              onClick={handleSelectAllFiltered}
-              style={{
-                padding: '12px 24px',
-                background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '15px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(204,93,232,0.3)'
-              }}
-            >
-              {selectedItems.length === filteredItems.length ? '✓ Deselect All' : '☐ Select All Filtered Items'}
-            </button>
-            {selectedItems.length > 0 && (
-              <span style={{ 
-                padding: '8px 16px',
-                background: '#e3f2fd',
-                color: '#0066cc',
-                borderRadius: '10px',
-                fontSize: '14px',
-                fontWeight: '600'
-              }}>
-                {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
-              </span>
+            {filterType === 'band' && (
+              <select
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid #dee2e6',
+                  backgroundColor: 'white',
+                  color: '#495057',
+                  fontWeight: '500'
+                }}
+              >
+                <option value="">Select a band...</option>
+                {bands.map(band => (
+                  <option key={band} value={band}>{band}</option>
+                ))}
+              </select>
+            )}
+
+            {filterType === 'location' && (
+              <select
+                value={filterValue}
+                onChange={(e) => setFilterValue(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  fontSize: '16px',
+                  borderRadius: '12px',
+                  border: '1px solid #dee2e6',
+                  backgroundColor: 'white',
+                  color: '#495057',
+                  fontWeight: '500'
+                }}
+              >
+                <option value="">Select a location...</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>
+                    {loc.name}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {filterType === 'status' && (
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => setFilterValue('active')}
+                  style={{
+                    padding: '10px 20px',
+                    background: filterValue === 'active' ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : '#f8f9fa',
+                    color: filterValue === 'active' ? 'white' : '#51cf66',
+                    border: filterValue === 'active' ? 'none' : '2px solid #51cf66',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    boxShadow: filterValue === 'active' ? '0 2px 8px rgba(81,207,102,0.3)' : 'none'
+                  }}
+                >
+                  📍 Active (at location)
+                </button>
+                <button
+                  onClick={() => setFilterValue('in-transit')}
+                  style={{
+                    padding: '10px 20px',
+                    background: filterValue === 'in-transit' ? 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)' : '#f8f9fa',
+                    color: filterValue === 'in-transit' ? 'white' : '#ffa94d',
+                    border: filterValue === 'in-transit' ? 'none' : '2px solid #ffa94d',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    boxShadow: filterValue === 'in-transit' ? '0 2px 8px rgba(255,169,77,0.3)' : 'none'
+                  }}
+                >
+                  🚚 In Transit
+                </button>
+                <button
+                  onClick={() => setFilterValue('checked-out')}
+                  style={{
+                    padding: '10px 20px',
+                    background: filterValue === 'checked-out' ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : '#f8f9fa',
+                    color: filterValue === 'checked-out' ? 'white' : '#868e96',
+                    border: filterValue === 'checked-out' ? 'none' : '2px solid #868e96',
+                    borderRadius: '10px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    boxShadow: filterValue === 'checked-out' ? '0 2px 8px rgba(134,142,150,0.3)' : 'none'
+                  }}
+                >
+                  🎸 Checked Out
+                </button>
+              </div>
             )}
           </div>
-        )}
 
-        {/* Print Selected Section */}
-        {selectedItems.length > 0 && (
-          <div style={{
-            padding: '20px',
-            background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-            borderRadius: '16px',
-            marginBottom: '24px',
-            border: '2px solid #0066cc'
-          }}>
-            <h3 style={{ 
-              marginTop: 0, 
-              marginBottom: '16px',
-              fontSize: '18px',
-              color: '#1a1a1a',
-              fontWeight: '700'
-            }}>
-              Print Selected Items ({selectedItems.length})
-            </h3>
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{ 
-                fontSize: '14px', 
-                fontWeight: '600', 
-                marginBottom: '10px',
-                color: '#495057'
-              }}>
-                Layout:
-              </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <button
-                  onClick={() => setPrintLayout('sheet')}
-                  style={{
-                    padding: '10px 20px',
-                    background: printLayout === 'sheet' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                    color: printLayout === 'sheet' ? 'white' : '#495057',
-                    border: printLayout === 'sheet' ? 'none' : '2px solid #dee2e6',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    boxShadow: printLayout === 'sheet' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
-                  }}
-                >
-                  Multiple per Sheet
-                </button>
-                <button
-                  onClick={() => setPrintLayout('pages')}
-                  style={{
-                    padding: '10px 20px',
-                    background: printLayout === 'pages' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                    color: printLayout === 'pages' ? 'white' : '#495057',
-                    border: printLayout === 'pages' ? 'none' : '2px solid #dee2e6',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    boxShadow: printLayout === 'pages' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
-                  }}
-                >
-                  One per Page
-                </button>
-              </div>
+          {/* Bulk Selection */}
+          {filterType !== 'all' && (
+            <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+              <button
+                onClick={handleSelectAllFiltered}
+                style={{
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '15px',
+                  fontWeight: '600',
+                  boxShadow: '0 2px 8px rgba(204,93,232,0.3)'
+                }}
+              >
+                {selectedItems.length === filteredItems.length ? '✓ Deselect All' : '☐ Select All Filtered Items'}
+              </button>
+              {selectedItems.length > 0 && (
+                <span style={{ 
+                  padding: '8px 16px',
+                  background: '#e3f2fd',
+                  color: '#0066cc',
+                  borderRadius: '10px',
+                  fontSize: '14px',
+                  fontWeight: '600'
+                }}>
+                  {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
+                </span>
+              )}
             </div>
-            <button
-              onClick={handlePrintSelected}
-              style={{
-                padding: '14px 28px',
-                background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '700',
-                boxShadow: '0 4px 12px rgba(81,207,102,0.3)'
-              }}
-            >
-              🖨️ Print {selectedItems.length} Label{selectedItems.length !== 1 ? 's' : ''}
-            </button>
-          </div>
-        )}
+          )}
 
-        {/* Item Count */}
-        <div style={{
-          padding: '12px 16px',
-          background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-          borderRadius: '12px',
-          marginBottom: '20px',
-          fontSize: '15px',
-          fontWeight: '600',
-          color: '#495057'
-        }}>
-          Total Items: {filteredItems.length}
-          {filterType !== 'all' && ` (filtered from ${gearItems.length})`}
+          {/* Print Selected Section */}
+          {selectedItems.length > 0 && (
+            <div style={{
+              padding: '20px',
+              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+              borderRadius: '16px',
+              marginBottom: '24px',
+              border: '2px solid #0066cc'
+            }}>
+              <h3 style={{ 
+                marginTop: 0, 
+                marginBottom: '16px',
+                fontSize: '18px',
+                color: '#1a1a1a',
+                fontWeight: '700'
+              }}>
+                Print Selected Items ({selectedItems.length})
+              </h3>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  marginBottom: '10px',
+                  color: '#495057'
+                }}>
+                  Layout:
+                </div>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button
+                    onClick={() => setPrintLayout('sheet')}
+                    style={{
+                      padding: '10px 20px',
+                      background: printLayout === 'sheet' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
+                      color: printLayout === 'sheet' ? 'white' : '#495057',
+                      border: printLayout === 'sheet' ? 'none' : '2px solid #dee2e6',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      boxShadow: printLayout === 'sheet' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    }}
+                  >
+                    Multiple per Sheet
+                  </button>
+                  <button
+                    onClick={() => setPrintLayout('pages')}
+                    style={{
+                      padding: '10px 20px',
+                      background: printLayout === 'pages' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
+                      color: printLayout === 'pages' ? 'white' : '#495057',
+                      border: printLayout === 'pages' ? 'none' : '2px solid #dee2e6',
+                      borderRadius: '10px',
+                      cursor: 'pointer',
+                      fontSize: '14px',
+                      fontWeight: '600',
+                      boxShadow: printLayout === 'pages' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    }}
+                  >
+                    One per Page
+                  </button>
+                </div>
+              </div>
+              <button
+                onClick={handlePrintSelected}
+                style={{
+                  padding: '14px 28px',
+                  background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '700',
+                  boxShadow: '0 4px 12px rgba(81,207,102,0.3)'
+                }}
+              >
+                🖨️ Print {selectedItems.length} Label{selectedItems.length !== 1 ? 's' : ''}
+              </button>
+            </div>
+          )}
+
+          {/* Item Count */}
+          <div style={{
+            padding: '12px 16px',
+            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+            borderRadius: '12px',
+            marginBottom: '20px',
+            fontSize: '15px',
+            fontWeight: '600',
+            color: '#495057'
+          }}>
+            Total Items: {filteredItems.length}
+            {filterType !== 'all' && ` (filtered from ${gearItems.length})`}
+          </div>
         </div>
       </div>
 
@@ -760,7 +722,47 @@ export default function GearList({ locationColors }) {
         )}
       </div>
 
-      {/* Print View */}
+      {/* Print View - Single Item Reprint */}
+      {itemToPrint && (
+        <div className="print-only">
+          <div className="print-label-page">
+            <img
+              src={itemToPrint.qr_code}
+              alt={`QR Code for ${itemToPrint.description}`}
+              style={{
+                width: '50mm',
+                height: '50mm',
+                display: 'block',
+                margin: '0 auto 3mm auto'
+              }}
+            />
+            <div style={{
+              fontSize: '5mm',
+              fontWeight: 'bold',
+              marginBottom: '2mm',
+              textAlign: 'center'
+            }}>
+              {itemToPrint.band_id}
+            </div>
+            <div style={{
+              fontSize: '4.5mm',
+              marginBottom: '2mm',
+              textAlign: 'center'
+            }}>
+              {itemToPrint.description}
+            </div>
+            <div style={{
+              fontSize: '3.5mm',
+              color: '#666',
+              textAlign: 'center'
+            }}>
+              ID: {itemToPrint.id}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print View - Selected Items */}
       <div className="print-only">
         {selectedItems.map(itemId => {
           const item = gearItems.find(i => i.id === itemId);
@@ -820,6 +822,10 @@ export default function GearList({ locationColors }) {
             margin: ${printLayout === 'pages' ? '0' : '8mm'};
           }
 
+          .print-label-page:last-child {
+            page-break-after: avoid;
+          }
+
           ${printLayout === 'pages' ? `
             .print-label-page {
               display: block;
@@ -827,7 +833,7 @@ export default function GearList({ locationColors }) {
               height: 105mm;
               padding: 5mm;
               box-sizing: border-box;
-              page-break-after: always;
+              page-break-after: avoid;
               page-break-inside: avoid;
             }
             .print-label-small {
