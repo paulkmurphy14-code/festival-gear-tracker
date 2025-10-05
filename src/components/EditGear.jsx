@@ -547,7 +547,9 @@ export default function EditGear({ item, onSave, onCancel }) {
       if (showPrintOption) {
         setTimeout(async () => {
           const updatedItem = await db.gear.get(item.id);
-          printLabel(updatedItem);
+          console.log('Printing item:', updatedItem);
+          console.log('QR Code exists:', !!updatedItem.qr_code);
+          printLabel(updatedItem);          printLabel(updatedItem);
         }, 500);
       }
 
