@@ -132,7 +132,7 @@ export default function EditGear({ item, onSave, onCancel }) {
           <div class="id">ID: ${itemData.id}</div>
         </div>
         <script>
-          window.onload = function() { setTimeout(function() { window.print(); }, 250); };
+          window.onload = function() { setTimeout(function() { window.print(); }, 1000);); };
           window.onafterprint = function() { window.close(); };
         </script>
       </body>

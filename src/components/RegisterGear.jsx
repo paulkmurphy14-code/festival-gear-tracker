@@ -591,6 +591,11 @@ export default function RegisterGear() {
                   margin: ${printLayout === 'pages' ? '0' : '8mm'};
                 }
 
+
+                .print-label-page:last-child {
+                  page-break-after: avoid;
+                }
+
                 ${printLayout === 'pages' ? `
                   .print-label-page {
                     display: block;
