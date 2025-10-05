@@ -68,88 +68,52 @@ export default function GearList({ locationColors }) {
   };
 
   const handleReprint = (item) => {
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
+  const printWindow = window.open('', '_blank', 'width=800,height=600');
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Print Label - ${item.description}</title>
-        <style>
-          @page {
-            size: 74mm 105mm;
-            margin: 0;
-          }
-          * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-          }
-          body {
-            margin: 0;
-            padding: 0;
-            font-family: Arial, sans-serif;
-          }
-          .label {
-            width: 74mm;
-            height: 105mm;
-            padding: 5mm;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-          }
-          .qr-code {
-            width: 50mm;
-            height: 50mm;
-            margin-bottom: 3mm;
-          }
-          .band-name {
-            font-size: 5mm;
-            font-weight: bold;
-            margin-bottom: 2mm;
-            text-align: center;
-            width: 100%;
-          }
-          .description {
-            font-size: 4.5mm;
-            margin-bottom: 2mm;
-            text-align: center;
-            width: 100%;
-          }
-          .id {
-            font-size: 3.5mm;
-            color: #666;
-            text-align: center;
-            width: 100%;
-          }
-          @media print {
-            body {
-              width: 74mm;
-              height: 105mm;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="label">
-          <img src="${item.qr_code}" alt="QR Code" class="qr-code" />
-          <div class="band-name">${item.band_id}</div>
-          <div class="description">${item.description}</div>
-          <div class="id">ID: ${item.id}</div>
-        </div>
-        <script>
-          window.onload = function() { setTimeout(function() { window.print(); }, 1000); };
-          window.onafterprint = function() {
-            window.close();
-          };
-        </script>
-      </body>
-      </html>
-    `);
+  printWindow.document.write(`
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Print Label - ${item.description}</title>
+      <style>
+        @page { size: 74mm 105mm; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { margin: 0; padding: 0; font-family: Arial, sans-serif; }
+        .label {
+          width: 74mm; height: 105mm; padding: 5mm;
+          display: flex; flex-direction: column;
+          align-items: center; justify-content: center;
+        }
+        .qr-code { width: 50mm; height: 50mm; margin-bottom: 3mm; }
+        .band-name { font-size: 5mm; font-weight: bold; margin-bottom: 2mm; text-align: center; width: 100%; }
+        .description { font-size: 4.5mm; margin-bottom: 2mm; text-align: center; width: 100%; }
+        .id { font-size: 3.5mm; color: #666; text-align: center; width: 100%; }
+        @media print { body { width: 74mm; height: 105mm; } }
+      </style>
+    </head>
+    <body>
+      <div class="label">
+        <img src="${item.qr_code}" alt="QR Code" class="qr-code" />
+        <div class="band-name">${item.band_id}</div>
+        <div class="description">${item.description}</div>
+        <div class="id">ID: ${item.id}</div>
+      </div>
+      <script>
+        window.onload = function() {
+          setTimeout(function() {
+            window.print();
+          }, 250);
+        };
+        window.onafterprint = function() {
+          window.close();
+        };
+      </script>
+    </body>
+    </html>
+  `);
 
-    printWindow.document.close();
-  };
+  printWindow.document.close();
+};
 
   const handleSaveEdit = async () => {
     setEditingItem(null);
