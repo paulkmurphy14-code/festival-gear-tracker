@@ -600,7 +600,7 @@ export default function EditGear({ item, onSave, onCancel }) {
         window.onload = function() {
           setTimeout(function() {
             window.print();
-          }, 250);
+          }, 1000);
         };
         window.onafterprint = function() {
           window.close();
