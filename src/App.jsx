@@ -545,265 +545,374 @@ function App() {
       )}
 
       {activeTab === 'scan' && scannedGear && (
-        <PageContainer>
-          <div style={{
-            background: 'white',
-            borderRadius: '20px',
-            padding: '24px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
-          }}>
-            <h2 style={{ marginTop: 0, fontSize: '22px', color: '#1a1a1a', fontWeight: '700' }}>
-              Scanned Item
-            </h2>
-            
-            <div style={{
-              padding: '20px',
-              background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-              borderRadius: '12px',
-              marginBottom: '24px',
-              fontSize: '15px'
-            }}>
-              <div style={{ marginBottom: '12px' }}>
-                <strong style={{ color: '#495057' }}>Band:</strong>
-                <div style={{ marginTop: '4px', fontSize: '16px', color: '#1a1a1a', fontWeight: '600' }}>
-                  {scannedGear.band_id}
-                </div>
-              </div>
-              <div style={{ marginBottom: '12px' }}>
-                <strong style={{ color: '#495057' }}>Description:</strong>
-                <div style={{ marginTop: '4px', fontSize: '16px', color: '#1a1a1a', fontWeight: '600' }}>
-                  {scannedGear.description}
-                </div>
-              </div>
-              <div>
-                <strong style={{ color: '#495057' }}>Status:</strong>
-                <div style={{ marginTop: '8px' }}>
-                  {scannedGear.checked_out ? (
-                    <span style={{ 
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}>
-                      Checked Out to Band
-                    </span>
-                  ) : scannedGear.in_transit ? (
-                    <span style={{ 
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}>
-                      In Transit
-                    </span>
-                  ) : scannedGear.current_location_id ? (
-                    <span style={{ 
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-                      color: 'white',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}>
-                      At {locations.find(l => l.id === scannedGear.current_location_id)?.name || 'Unknown'}
-                    </span>
-                  ) : (
-                    <span style={{ 
-                      display: 'inline-block',
-                      padding: '8px 16px',
-                      background: '#e9ecef',
-                      color: '#495057',
-                      borderRadius: '8px',
-                      fontSize: '14px',
-                      fontWeight: '600'
-                    }}>
-                      Not checked in yet
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-
+  <PageContainer>
+    <div style={{
+      background: 'white',
+      borderRadius: '20px',
+      padding: '24px',
+      boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
+    }}>
+      <h2 style={{ 
+        marginTop: 0, 
+        marginBottom: '20px',
+        fontSize: '24px', 
+        color: '#1a1a1a', 
+        fontWeight: '700',
+        textAlign: 'center'
+      }}>
+        Scanned Item
+      </h2>
+      
+      {/* Item Details Card */}
+      <div style={{
+        padding: '24px',
+        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
+        borderRadius: '16px',
+        marginBottom: '24px',
+        border: '2px solid #dee2e6'
+      }}>
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px', fontWeight: '600' }}>
+            Band
+          </div>
+          <div style={{ fontSize: '20px', color: '#1a1a1a', fontWeight: '700' }}>
+            {scannedGear.band_id}
+          </div>
+        </div>
+        
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px', fontWeight: '600' }}>
+            Description
+          </div>
+          <div style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '600' }}>
+            {scannedGear.description}
+          </div>
+        </div>
+        
+        <div>
+          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '8px', fontWeight: '600' }}>
+            Status
+          </div>
+          <div>
             {scannedGear.checked_out ? (
-              <div>
-                <h3 style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '700', marginBottom: '12px' }}>
-                  Check Back In
-                </h3>
-                <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
-                  Select location to check this item back in:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {locations.map(loc => (
-                    <button
-                      key={loc.id}
-                      onClick={() => handleLocationSelect(loc.id)}
-                      style={{
-                        padding: '16px',
-                        minHeight: '56px',
-                        backgroundColor: loc.color,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}
-                    >
-                      {loc.emoji && <span style={{ fontSize: '24px' }}>{loc.emoji}</span>}
-                      <span>{loc.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <div style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '600',
+                boxShadow: '0 2px 8px rgba(134,142,150,0.3)'
+              }}>
+                <span style={{ fontSize: '20px' }}>🎸</span>
+                <span>Checked Out to Band</span>
               </div>
             ) : scannedGear.in_transit ? (
-              <div>
-                <h3 style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '700', marginBottom: '12px' }}>
-                  Check IN to Location
-                </h3>
-                <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
-                  Item is currently in transit. Select destination:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {locations.map(loc => (
-                    <button
-                      key={loc.id}
-                      onClick={() => handleLocationSelect(loc.id)}
-                      style={{
-                        padding: '16px',
-                        minHeight: '56px',
-                        backgroundColor: loc.color,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}
-                    >
-                      {loc.emoji && <span style={{ fontSize: '24px' }}>{loc.emoji}</span>}
-                      <span>{loc.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <div style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '600',
+                boxShadow: '0 2px 8px rgba(255,169,77,0.3)'
+              }}>
+                <span style={{ fontSize: '20px' }}>🚚</span>
+                <span>In Transit</span>
               </div>
             ) : scannedGear.current_location_id ? (
-              <div>
-                <h3 style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '700', marginBottom: '16px' }}>
-                  Check Out Options
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <button
-                    onClick={() => handleCheckOut('transit')}
-                    style={{
-                      padding: '18px',
-                      minHeight: '60px',
-                      background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      boxShadow: '0 4px 12px rgba(255, 169, 77, 0.3)'
-                    }}
-                  >
-                    Check OUT (Moving within festival)
-                  </button>
-                  <button
-                    onClick={() => handleCheckOut('band')}
-                    style={{
-                      padding: '18px',
-                      minHeight: '60px',
-                      background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '12px',
-                      cursor: 'pointer',
-                      fontSize: '16px',
-                      fontWeight: '600',
-                      boxShadow: '0 4px 12px rgba(134, 142, 150, 0.3)'
-                    }}
-                  >
-                    Check Out to Band (Off-site)
-                  </button>
-                </div>
+              <div style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: `linear-gradient(135deg, ${locationColors[scannedGear.current_location_id] || '#51cf66'} 0%, ${locationColors[scannedGear.current_location_id] || '#37b24d'}dd 100%)`,
+                color: 'white',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '600',
+                boxShadow: `0 2px 8px ${locationColors[scannedGear.current_location_id] || '#51cf66'}40`
+              }}>
+                <span style={{ fontSize: '20px' }}>📍</span>
+                <span>At {locations.find(l => l.id === scannedGear.current_location_id)?.name || 'Unknown'}</span>
               </div>
             ) : (
-              <div>
-                <h3 style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '700', marginBottom: '12px' }}>
-                  Select Initial Location
-                </h3>
-                <p style={{ fontSize: '14px', color: '#666', marginBottom: '16px' }}>
-                  This item hasn't been checked in yet. Select a location:
-                </p>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {locations.map(loc => (
-                    <button
-                      key={loc.id}
-                      onClick={() => handleLocationSelect(loc.id)}
-                      style={{
-                        padding: '16px',
-                        minHeight: '56px',
-                        backgroundColor: loc.color,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '12px',
-                        cursor: 'pointer',
-                        fontSize: '16px',
-                        fontWeight: '600',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '12px'
-                      }}
-                    >
-                      {loc.emoji && <span style={{ fontSize: '24px' }}>{loc.emoji}</span>}
-                      <span>{loc.name}</span>
-                    </button>
-                  ))}
-                </div>
+              <div style={{ 
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#f8f9fa',
+                color: '#6c757d',
+                borderRadius: '12px',
+                fontSize: '15px',
+                fontWeight: '600',
+                border: '2px dashed #dee2e6'
+              }}>
+                <span style={{ fontSize: '20px' }}>❓</span>
+                <span>Not checked in yet</span>
               </div>
             )}
+          </div>
+        </div>
+      </div>
 
+      {/* Action Section */}
+      {scannedGear.checked_out ? (
+        <div>
+          <h3 style={{ 
+            fontSize: '18px', 
+            color: '#1a1a1a', 
+            fontWeight: '700', 
+            marginBottom: '12px',
+            textAlign: 'center'
+          }}>
+            Check Back In
+          </h3>
+          <p style={{ 
+            fontSize: '14px', 
+            color: '#6c757d', 
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            Select location to check this item back in:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {locations.map(loc => (
+              <button
+                key={loc.id}
+                onClick={() => handleLocationSelect(loc.id)}
+                style={{
+                  padding: '16px',
+                  minHeight: '56px',
+                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  boxShadow: `0 4px 12px ${loc.color}40`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  transition: 'transform 0.1s ease'
+                }}
+                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <span style={{ fontSize: '24px' }}>📍</span>
+                <span>{loc.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : scannedGear.in_transit ? (
+        <div>
+          <h3 style={{ 
+            fontSize: '18px', 
+            color: '#1a1a1a', 
+            fontWeight: '700', 
+            marginBottom: '12px',
+            textAlign: 'center'
+          }}>
+            Check IN to Location
+          </h3>
+          <p style={{ 
+            fontSize: '14px', 
+            color: '#6c757d', 
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            Item is currently in transit. Select destination:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {locations.map(loc => (
+              <button
+                key={loc.id}
+                onClick={() => handleLocationSelect(loc.id)}
+                style={{
+                  padding: '16px',
+                  minHeight: '56px',
+                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  boxShadow: `0 4px 12px ${loc.color}40`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  transition: 'transform 0.1s ease'
+                }}
+                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <span style={{ fontSize: '24px' }}>📍</span>
+                <span>{loc.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : scannedGear.current_location_id ? (
+        <div>
+          <h3 style={{ 
+            fontSize: '18px', 
+            color: '#1a1a1a', 
+            fontWeight: '700', 
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            Check Out Options
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <button
-              onClick={() => {
-                setScannedGear(null);
-                setActiveTab('home');
-              }}
+              onClick={() => handleCheckOut('transit')}
               style={{
-                marginTop: '20px',
-                padding: '16px',
-                minHeight: '52px',
-                background: '#e9ecef',
-                color: '#495057',
+                padding: '18px',
+                minHeight: '64px',
+                background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
+                color: 'white',
                 border: 'none',
                 borderRadius: '12px',
                 cursor: 'pointer',
-                width: '100%',
                 fontSize: '16px',
-                fontWeight: '600'
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(255,169,77,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                transition: 'transform 0.1s ease'
               }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
             >
-              Cancel
+              <span style={{ fontSize: '24px' }}>🚚</span>
+              <span>Check OUT (Moving within festival)</span>
+            </button>
+            <button
+              onClick={() => handleCheckOut('band')}
+              style={{
+                padding: '18px',
+                minHeight: '64px',
+                background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                fontSize: '16px',
+                fontWeight: '600',
+                boxShadow: '0 4px 12px rgba(134,142,150,0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '12px',
+                transition: 'transform 0.1s ease'
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            >
+              <span style={{ fontSize: '24px' }}>🎸</span>
+              <span>Check Out to Band (Off-site)</span>
             </button>
           </div>
-        </PageContainer>
+        </div>
+      ) : (
+        <div>
+          <h3 style={{ 
+            fontSize: '18px', 
+            color: '#1a1a1a', 
+            fontWeight: '700', 
+            marginBottom: '12px',
+            textAlign: 'center'
+          }}>
+            Select Initial Location
+          </h3>
+          <p style={{ 
+            fontSize: '14px', 
+            color: '#6c757d', 
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            This item hasn't been checked in yet. Select a location:
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {locations.map(loc => (
+              <button
+                key={loc.id}
+                onClick={() => handleLocationSelect(loc.id)}
+                style={{
+                  padding: '16px',
+                  minHeight: '56px',
+                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '12px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600',
+                  boxShadow: `0 4px 12px ${loc.color}40`,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '12px',
+                  transition: 'transform 0.1s ease'
+                }}
+                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              >
+                <span style={{ fontSize: '24px' }}>📍</span>
+                <span>{loc.name}</span>
+              </button>
+            ))}
+          </div>
+        </div>
       )}
+
+      <button
+        onClick={() => {
+          setScannedGear(null);
+          setActiveTab('home');
+        }}
+        style={{
+          marginTop: '20px',
+          padding: '16px',
+          minHeight: '52px',
+          background: '#f8f9fa',
+          color: '#495057',
+          border: '1px solid #dee2e6',
+          borderRadius: '12px',
+          cursor: 'pointer',
+          width: '100%',
+          fontSize: '16px',
+          fontWeight: '600',
+          transition: 'transform 0.1s ease'
+        }}
+        onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
+        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+      >
+        Cancel
+      </button>
+    </div>
+  </PageContainer>
+)}
     </div>
   );
 }
