@@ -208,56 +208,67 @@ export default function PreparedGate() {
 
         {importedItems.length === 0 ? (
           <div>
-            {/* CSV Format Options */}
-            <div style={{
-              padding: '20px',
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-              borderRadius: '16px',
-              marginBottom: '24px',
-              border: '2px solid #2196f3'
-            }}>
-              <h3 style={{ marginTop: 0, marginBottom: '16px', color: '#1a1a1a', fontSize: '20px', fontWeight: '700' }}>
-                CSV Format Options
-              </h3>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'flex', alignItems: 'flex-start', marginBottom: '12px', cursor: 'pointer', padding: '12px', background: 'white', borderRadius: '10px' }}>
-                  <input
-                    type="radio"
-                    value="basic"
-                    checked={csvFormat === 'basic'}
-                    onChange={(e) => setCsvFormat(e.target.value)}
-                    style={{ marginRight: '12px', marginTop: '2px', accentColor: '#2196f3', width: '18px', height: '18px' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ fontSize: '16px', color: '#1a1a1a' }}>Basic Format (Band Name, Item Description)</strong>
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#555', fontFamily: 'monospace', background: '#f5f5f5', padding: '10px', borderRadius: '6px' }}>
-                      The Rockers, Electric Guitar<br/>
-                      The Rockers, Bass Amplifier<br/>
-                      Jazz Cats, Saxophone
-                    </div>
+            {/* CSV Format Selection */}
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', marginBottom: '12px', fontSize: '16px', fontWeight: '600', color: '#495057' }}>
+                CSV Format
+              </label>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
+                <button
+                  onClick={() => setCsvFormat('basic')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 20px',
+                    background: csvFormat === 'basic' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                    color: csvFormat === 'basic' ? 'white' : '#495057',
+                    border: csvFormat === 'basic' ? 'none' : '2px solid #dee2e6',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    boxShadow: csvFormat === 'basic' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                  }}
+                >
+                  Basic Format
+                </button>
+                <button
+                  onClick={() => setCsvFormat('schedule')}
+                  style={{
+                    flex: 1,
+                    padding: '12px 20px',
+                    background: csvFormat === 'schedule' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
+                    color: csvFormat === 'schedule' ? 'white' : '#495057',
+                    border: csvFormat === 'schedule' ? 'none' : '2px solid #dee2e6',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '15px',
+                    fontWeight: '600',
+                    boxShadow: csvFormat === 'schedule' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                  }}
+                >
+                  With Schedule
+                </button>
+              </div>
+              <div style={{
+                padding: '12px 16px',
+                background: '#f8f9fa',
+                borderRadius: '10px',
+                fontSize: '13px',
+                color: '#6c757d',
+                fontFamily: 'monospace',
+                lineHeight: '1.6'
+              }}>
+                {csvFormat === 'basic' ? (
+                  <div>
+                    <strong>Format:</strong> Band Name, Item Description<br/>
+                    <span style={{ color: '#495057' }}>Example: The Rockers, Electric Guitar</span>
                   </div>
-                </label>
-
-                <label style={{ display: 'flex', alignItems: 'flex-start', cursor: 'pointer', padding: '12px', background: 'white', borderRadius: '10px' }}>
-                  <input
-                    type="radio"
-                    value="schedule"
-                    checked={csvFormat === 'schedule'}
-                    onChange={(e) => setCsvFormat(e.target.value)}
-                    style={{ marginRight: '12px', marginTop: '2px', accentColor: '#2196f3', width: '18px', height: '18px' }}
-                  />
-                  <div style={{ flex: 1 }}>
-                    <strong style={{ fontSize: '16px', color: '#1a1a1a' }}>With Schedule (Band Name, Item Description, Schedule)</strong>
-                    <div style={{ marginTop: '8px', fontSize: '14px', color: '#555' }}>
-                      <strong>Format:</strong> StageName~DD-MM-YYYY~HH:MM (use | to separate multiple performances)
-                      <div style={{ marginTop: '8px', fontFamily: 'monospace', background: '#f5f5f5', padding: '10px', borderRadius: '6px' }}>
-                        The Rockers, Guitar, The Salty Dog~05-10-2025~20:00|Providencia~06-10-2025~21:30<br/>
-                        Jazz Cats, Saxophone, Providencia~05-10-2025~19:00
-                      </div>
-                    </div>
+                ) : (
+                  <div>
+                    <strong>Format:</strong> Band, Item, Stage~DD-MM-YYYY~HH:MM<br/>
+                    <span style={{ color: '#495057' }}>Example: The Rockers, Guitar, Main Stage~05-10-2025~20:00</span>
                   </div>
-                </label>
+                )}
               </div>
             </div>
 
