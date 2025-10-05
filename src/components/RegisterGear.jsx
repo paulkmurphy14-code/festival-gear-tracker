@@ -603,7 +603,7 @@ export default function RegisterGear() {
                     height: 105mm;
                     padding: 5mm;
                     box-sizing: border-box;
-                    page-break-after: always;
+                    page-break-after: avoid;
                     page-break-inside: avoid;
                   }
                   .print-label-small {
