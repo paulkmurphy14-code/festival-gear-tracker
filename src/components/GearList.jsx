@@ -74,8 +74,8 @@ export default function GearList({ locationColors }) {
       window.print();
       setTimeout(() => {
         setItemToPrint(null);
-      }, 100);
-    }, 100);
+      }, 500);
+    }, 500);
   };
 
   const handleSaveEdit = async () => {
