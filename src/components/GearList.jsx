@@ -70,7 +70,7 @@ export default function GearList({ locationColors }) {
 
   const handleReprint = (item) => {
   setItemToPrint(item);
-  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2000 : 500;
+  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
   setTimeout(() => {
     window.print();
     setTimeout(() => {
