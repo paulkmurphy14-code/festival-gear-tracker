@@ -86,7 +86,7 @@ export default function EditGear({ item, onSave, onCancel }) {
   const itemData = await db.gear.get(item.id);
   setUpdatedItem(itemData);
   setShouldPrint(true);
-  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2000 : 500;
+  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
   setTimeout(() => {
     window.print();
     setTimeout(() => {
