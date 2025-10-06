@@ -83,22 +83,23 @@ export default function EditGear({ item, onSave, onCancel }) {
       setMessage('✓ Item updated successfully!');
 
       if (showPrintOption) {
-        const itemData = await db.gear.get(item.id);
-        setUpdatedItem(itemData);
-        setShouldPrint(true);
-        setTimeout(() => {
-          window.print();
-          setTimeout(() => {
-            setShouldPrint(false);
-            onSave();
-          }, 500);
-        }, 500);
-      } else {
-        setTimeout(() => {
-          setMessage('');
-          onSave();
-        }, 1000);
-      }
+  const itemData = await db.gear.get(item.id);
+  setUpdatedItem(itemData);
+  setShouldPrint(true);
+  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 1500 : 500;
+  setTimeout(() => {
+    window.print();
+    setTimeout(() => {
+      setShouldPrint(false);
+      onSave();
+    }, delay);
+  }, delay);
+} else {
+  setTimeout(() => {
+    setMessage('');
+    onSave();
+  }, 1000);
+}
 
     } catch (error) {
       console.error('Error updating gear:', error);

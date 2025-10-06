@@ -69,14 +69,15 @@ export default function GearList({ locationColors }) {
   };
 
   const handleReprint = (item) => {
-    setItemToPrint(item);
+  setItemToPrint(item);
+  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 1000 : 500;
+  setTimeout(() => {
+    window.print();
     setTimeout(() => {
-      window.print();
-      setTimeout(() => {
-        setItemToPrint(null);
-      }, 500);
-    }, 500);
-  };
+      setItemToPrint(null);
+    }, delay);
+  }, delay);
+};
 
   const handleSaveEdit = async () => {
     setEditingItem(null);
