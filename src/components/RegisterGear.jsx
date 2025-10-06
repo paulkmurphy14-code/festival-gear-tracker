@@ -554,6 +554,9 @@ export default function RegisterGear() {
                   page-break-after: always;
                   page-break-inside: avoid;
                 }
+                .print-label-page:last-child {
+                  page-break-after: avoid;
+                }
                 .print-label-small {
                   display: none;
                 }

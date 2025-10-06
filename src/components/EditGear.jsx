@@ -454,10 +454,30 @@ export default function EditGear({ item, onSave, onCancel }) {
           </div>
         )}
 
-        <style>{`
+      <style>{`
           @media print {
             body * { visibility: hidden; }
             .print-only, .print-only * { visibility: visible; }
             .print-only { position: absolute; left: 0; top: 0; }
             .no-print { display: none !important; }
-
+            
+            .print-label-page {
+              display: block;
+              width: 74mm;
+              height: 105mm;
+              padding: 5mm;
+              box-sizing: border-box;
+              page-break-after: avoid;
+              page-break-inside: avoid;
+            }
+            
+            @page {
+              size: 74mm 105mm;
+              margin: 0;
+            }
+          }
+        `}</style>
+      </div>
+    </div>
+  );
+}

@@ -810,57 +810,36 @@ export default function GearList({ locationColors }) {
         })}
       </div>
 
-      <style>{`
-        @media print {
-          body * { visibility: hidden; }
-          .print-only, .print-only * { visibility: visible; }
-          .print-only { position: absolute; left: 0; top: 0; }
-          .no-print { display: none !important; }
-
-          @page {
-            size: ${printLayout === 'pages' ? '74mm 105mm' : 'A4'};
-            margin: ${printLayout === 'pages' ? '0' : '8mm'};
-          }
-
-          .print-label-page:last-child {
-            page-break-after: avoid;
-          }
-
-          ${printLayout === 'pages' ? `
-            .print-label-page {
-              display: block;
-              width: 74mm;
-              height: 105mm;
-              padding: 5mm;
-              box-sizing: border-box;
-              page-break-after: avoid;
-              page-break-inside: avoid;
-            }
-            .print-label-small {
-              display: none;
-            }
-          ` : `
-            .print-label-small {
-              display: inline-block;
-              width: 90mm;
-              padding: 5mm;
-              margin: 2mm;
-              box-sizing: border-box;
-              vertical-align: top;
-              page-break-inside: avoid;
-            }
-            .print-label-page {
-              display: none;
-            }
-          `}
-        }
-
-        @media screen {
-          .print-only {
-            display: none !important;
-          }
-        }
-      `}</style>
+     <style>{`
+  @media print {
+    body * { visibility: hidden; }
+    .print-only, .print-only * { visibility: visible; }
+    .print-only { position: absolute; left: 0; top: 0; }
+    .no-print { display: none !important; }
+    
+    .print-label-page {
+      display: block;
+      width: 74mm;
+      height: 105mm;
+      padding: 5mm;
+      box-sizing: border-box;
+      page-break-after: avoid;
+      page-break-inside: avoid;
+    }
+    
+    @page {
+      size: 74mm 105mm;
+      margin: 0;
+    }
+  }
+  
+  @media screen {
+    .print-only {
+      display: none !important;
+    }
+  }
+`}</style>
+      )}
     </div>
   );
 }
