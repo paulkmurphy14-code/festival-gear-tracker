@@ -7,6 +7,8 @@ import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
 import { db } from './localDb';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { FestivalProvider, useFestival } from './contexts/FestivalContext';
+import FestivalSetup from './components/FestivalSetup';
 import Login from './components/Login';
 import Signup from './components/Signup';
 
@@ -70,6 +72,12 @@ function AppContent() {
     return showSignup ? 
       <Signup onSwitchToLogin={() => setShowSignup(false)} /> : 
       <Login onSwitchToSignup={() => setShowSignup(true)} />;
+  }
+
+  const { currentFestival } = useFestival();
+  
+  if (!currentFestival) {
+    return <FestivalSetup />;
   }
 
   // Original code continues below
@@ -333,7 +341,7 @@ function AppContent() {
             color: 'white'
           }}>
             <h2 style={{ fontSize: '20px', margin: '0 0 4px 0', fontWeight: '700' }}>
-              Welcome Back
+              {currentFestival.name}
             </h2>
             <p style={{ margin: 0, fontSize: '13px', opacity: 0.85 }}>
               Select an action to get started
@@ -949,7 +957,9 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <FestivalProvider>
+        <AppContent />
+      </FestivalProvider>
     </AuthProvider>
   );
 }
