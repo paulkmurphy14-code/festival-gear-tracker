@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../db';
+import { db } from '../localDb';
 
 export default function EditGear({ item, onSave, onCancel }) {
   const [description, setDescription] = useState(item.description);

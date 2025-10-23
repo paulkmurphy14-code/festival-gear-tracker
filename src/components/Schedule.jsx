@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '../db';
+import { db } from '../localDb';
 
 export default function Schedule({ locationColors }) {
   const [performances, setPerformances] = useState([]);

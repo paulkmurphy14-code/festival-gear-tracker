@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import localDb from '../db';
+import localDb from '../localDb';
 import EditGear from './EditGear';
 
 export default function GearList({ locationColors }) {

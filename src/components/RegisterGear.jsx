@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../db';
+import { db } from '../localDb';
 import { generateQRCode } from '../utils/qrCode';
 
 export default function RegisterGear() {

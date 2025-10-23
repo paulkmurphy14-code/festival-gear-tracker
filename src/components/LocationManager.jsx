@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { db } from '../db';
+import { db } from '../localDb';
 
 export default function LocationManager({ onUpdate }) {
   const [locations, setLocations] = useState([]);

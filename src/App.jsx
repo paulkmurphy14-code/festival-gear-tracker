@@ -5,7 +5,10 @@ import GearList from './components/GearList';
 import Scanner from './components/Scanner';
 import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
-import { db } from './db';
+import { db } from './localDb';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+import Login from './components/Login';
+import Signup from './components/Signup';
 
 const GlobalStyles = () => (
   <style>{`
@@ -58,7 +61,18 @@ const PageContainer = ({ children, isHome = false }) => (
   </div>
 );
 
-function App() {
+function AppContent() {
+  const { currentUser, logout } = useAuth();
+  const [showSignup, setShowSignup] = useState(false);
+  
+  // If not logged in, show auth screens
+  if (!currentUser) {
+    return showSignup ? 
+      <Signup onSwitchToLogin={() => setShowSignup(false)} /> : 
+      <Login onSwitchToSignup={() => setShowSignup(true)} />;
+  }
+
+  // Original code continues below
   const [activeTab, setActiveTab] = useState('home');
   const [scannedGear, setScannedGear] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -251,6 +265,21 @@ function App() {
               Organise Chaos Like a Pro
             </div>
           </div>
+	  <button
+          onClick={() => { logout(); window.location.reload(); }}
+          style={{
+            padding: '10px 16px',
+            background: '#f8f9fa',
+            color: '#495057',
+            border: '1px solid #dee2e6',
+            borderRadius: '8px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '600'
+          }}
+        >
+          Logout
+        </button>
         </div>
         {activeTab !== 'home' && (
           <button
@@ -914,6 +943,14 @@ function App() {
   </PageContainer>
 )}
     </div>
+  );
+}
+
+function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
 
