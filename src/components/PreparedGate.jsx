@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { db } from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 import { generateQRCode } from '../utils/qrCode';
 
 export default function PreparedGate() {
+  const db = useDatabase();
   const [file, setFile] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [importedItems, setImportedItems] = useState([]);

@@ -5,12 +5,13 @@ import GearList from './components/GearList';
 import Scanner from './components/Scanner';
 import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
-import { db } from './localDb';
+import { getFirestoreDb } from './firestoreDb';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
 import Login from './components/Login';
 import Signup from './components/Signup';
+import { DatabaseProvider, useDatabase } from './contexts/DatabaseContext';
 
 const GlobalStyles = () => (
   <style>{`
@@ -80,6 +81,10 @@ function AppContent() {
     return <FestivalSetup />;
   }
 
+  const db = useDatabase();
+
+// Create festival-scoped database
+
   // Original code continues below
   const [activeTab, setActiveTab] = useState('home');
   const [scannedGear, setScannedGear] = useState(null);
@@ -111,12 +116,11 @@ function AppContent() {
   console.log('handleScan called with:', qrData);
   
   if (qrData && qrData.startsWith('GEAR:')) {
-    const gearIdString = qrData.replace('GEAR:', '').trim();
-    const gearId = parseInt(gearIdString, 10);
-    
+    const gearId = qrData.replace('GEAR:', '').trim();
+
     console.log('Parsed gear ID:', gearId);
-    
-    if (isNaN(gearId)) {
+
+    if (!gearId) {
       alert('Invalid QR code format');
       return;
     }
@@ -958,7 +962,9 @@ function App() {
   return (
     <AuthProvider>
       <FestivalProvider>
-        <AppContent />
+        <DatabaseProvider>
+          <AppContent />
+        </DatabaseProvider>
       </FestivalProvider>
     </AuthProvider>
   );

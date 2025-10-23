@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
-import localDb from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 import EditGear from './EditGear';
 
 export default function GearList({ locationColors }) {
+  const localDb = useDatabase();
   const [gearItems, setGearItems] = useState([]);
   const [locations, setLocations] = useState([]);
   const [bands, setBands] = useState([]);

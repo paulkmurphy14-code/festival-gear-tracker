@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { db } from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 
 export default function EditGear({ item, onSave, onCancel }) {
+  const db = useDatabase();
   const [description, setDescription] = useState(item.description);
   const [bandName, setBandName] = useState(item.band_id);
   const [performances, setPerformances] = useState([]);
@@ -64,10 +65,10 @@ export default function EditGear({ item, onSave, onCancel }) {
       });
 
       if (oldBandName !== bandName.trim()) {
-        await db.performances.where('band_id').equals(oldBandName).modify({ band_id: bandName.trim() });
+        await db.performances.where('band_id', '==', oldBandName).modify({ band_id: bandName.trim() });
       }
 
-      await db.performances.where('band_id').equals(bandName.trim()).delete();
+      await db.performances.where('band_id', '==', bandName.trim()).delete();
 
       for (const perf of performances) {
         if (perf.location && perf.date && perf.time) {

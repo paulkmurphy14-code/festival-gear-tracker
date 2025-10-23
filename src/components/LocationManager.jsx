@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { db } from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 
 export default function LocationManager({ onUpdate }) {
+  const db = useDatabase()
   const [locations, setLocations] = useState([]);
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({ name: '', color: '#0066cc' });
@@ -99,8 +100,8 @@ export default function LocationManager({ onUpdate }) {
   };
 
   const deleteLocation = async (id) => {
-    const gearAtLocation = await db.gear.where('current_location_id').equals(id).count();
-    const performancesAtLocation = await db.performances.where('location_id').equals(id).count();
+    const gearAtLocation = await db.gear.where('current_location_id', '==', id).count();
+    const performancesAtLocation = await db.performances.where('location_id', '==', id).count();;
 
     let warningMessage = 'Are you sure you want to delete this location?';
 
@@ -112,8 +113,8 @@ export default function LocationManager({ onUpdate }) {
 
     if (confirmed) {
       try {
-        await db.gear.where('current_location_id').equals(id).modify({ current_location_id: null });
-        await db.performances.where('location_id').equals(id).delete();
+        await db.gear.where('current_location_id', '==', id).modify({ current_location_id: null });
+        await db.performances.where('location_id', '==', id).delete();
         await db.locations.delete(id);
 
         setMessage('✓ Location deleted successfully');

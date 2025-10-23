@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { db } from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 
 export default function Schedule({ locationColors }) {
+  const db = useDatabase();
   const [performances, setPerformances] = useState([]);
   const [locations, setLocations] = useState([]);
   const [bands, setBands] = useState([]);

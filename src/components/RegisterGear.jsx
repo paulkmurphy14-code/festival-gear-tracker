@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { db } from '../localDb';
+import { useDatabase } from '../contexts/DatabaseContext';
 import { generateQRCode } from '../utils/qrCode';
 
 export default function RegisterGear() {
+  const db = useDatabase();
   const [items, setItems] = useState([{ description: '' }]);
   const [bandName, setBandName] = useState('');
   const [performances, setPerformances] = useState([]);
