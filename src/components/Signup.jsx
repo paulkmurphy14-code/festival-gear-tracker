@@ -19,8 +19,7 @@ export default function Signup({ onSwitchToLogin }) {
     try {
       setError('');
       setLoading(true);
-      await login(email, password);
-      window.location.reload();
+      await signup(email, password);
     } catch (err) {
       setError('Failed to create account: ' + err.message);
     }

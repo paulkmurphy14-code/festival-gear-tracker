@@ -15,7 +15,6 @@ export default function Login({ onSwitchToSignup }) {
       setError('');
       setLoading(true);
       await login(email, password);
-      window.location.reload();
     } catch (err) {
       setError('Failed to log in: ' + err.message);
     }

@@ -62,6 +62,7 @@ export default function PreparedGate() {
         locationMap[loc.name.toLowerCase()] = loc.id;
       });
 
+
       for (const line of dataLines) {
         if (!line.trim()) continue;
 

@@ -94,6 +94,14 @@ export function getFirestoreDb(festivalId) {
         const docRef = await addDoc(collection(db, `festivals/${festivalId}/performances`), data);
         return docRef.id;
       },
+    
+    async update(id, data) {
+      await updateDoc(doc(db, `festivals/${festivalId}/performances`, String(id)), data);
+    },
+    
+    async delete(id) {
+      await deleteDoc(doc(db, `festivals/${festivalId}/performances`, String(id)));
+    },
       
       async toArray() {
         const snapshot = await getDocs(collection(db, `festivals/${festivalId}/performances`));

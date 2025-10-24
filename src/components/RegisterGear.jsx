@@ -95,7 +95,7 @@ export default function RegisterGear() {
         if (perf.location && perf.date && perf.time) {
           await db.performances.add({
             band_id: bandName.trim(),
-            location_id: parseInt(perf.location),
+            location_id: perf.location,
             date: perf.date,
             time: perf.time
           });

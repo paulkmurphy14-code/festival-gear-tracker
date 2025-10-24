@@ -25,6 +25,7 @@ export function FestivalProvider({ children }) {
   }, [currentUser]);
 
   async function loadUserFestival() {
+    setLoading(true);
     try {
       const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
       
@@ -44,17 +45,23 @@ export function FestivalProvider({ children }) {
     setLoading(false);
   }
 
-  async function createFestival(festivalName) {
-    try {
-      const festivalRef = doc(collection(db, 'festivals'));
-      
-      await setDoc(festivalRef, {
-        name: festivalName,
-        ownerId: currentUser.uid,
-        createdAt: new Date(),
-        licenseStatus: 'trial',
-        licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 day trial
-      });
+ async function createFestival(formData) {
+  try {
+    const festivalRef = doc(collection(db, 'festivals'));
+    
+    await setDoc(festivalRef, {
+      name: formData.festivalName,
+      registrarName: formData.registrarName,
+      location: formData.location,
+      contactEmail: formData.contactEmail,
+      contactPhone: formData.contactPhone || '',
+      startDate: formData.startDate || null,
+      endDate: formData.endDate || null,
+      ownerId: currentUser.uid,
+      createdAt: new Date(),
+      licenseStatus: 'trial',
+      licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
 
       await setDoc(doc(db, 'users', currentUser.uid), {
         email: currentUser.email,
@@ -64,7 +71,7 @@ export function FestivalProvider({ children }) {
 
       setCurrentFestival({
         id: festivalRef.id,
-        name: festivalName,
+        name: formData.festivalName,
         ownerId: currentUser.uid
       });
 

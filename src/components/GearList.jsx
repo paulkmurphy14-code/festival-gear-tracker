@@ -35,16 +35,18 @@ export default function GearList({ locationColors }) {
   }, [loadData]);
 
   const getTimeAgo = (date) => {
-    if (!date) return '';
-    const now = new Date();
-    const updated = new Date(date);
-    const seconds = Math.floor((now - updated) / 1000);
+  if (!date) return '';
+  
+  // Handle Firestore Timestamp
+  const updated = date.toDate ? date.toDate() : new Date(date);
+  const now = new Date();
+  const seconds = Math.floor((now - updated) / 1000);
 
-    if (seconds < 60) return 'Just now';
-    if (seconds < 3600) return `${Math.floor(seconds / 60)} mins ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-    return `${Math.floor(seconds / 86400)} days ago`;
-  };
+  if (seconds < 60) return 'Just now';
+  if (seconds < 3600) return `${Math.floor(seconds / 60)} mins ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
+  return `${Math.floor(seconds / 86400)} days ago`;
+};
 
   const getLocationInfo = useCallback((locationId) => {
     const location = locations.find(loc => loc.id === locationId);

@@ -65,27 +65,12 @@ const PageContainer = ({ children, isHome = false }) => (
 );
 
 function AppContent() {
+  // ALL HOOKS AT TOP
   const { currentUser, logout } = useAuth();
-  const [showSignup, setShowSignup] = useState(false);
-  
-  // If not logged in, show auth screens
-  if (!currentUser) {
-    return showSignup ? 
-      <Signup onSwitchToLogin={() => setShowSignup(false)} /> : 
-      <Login onSwitchToSignup={() => setShowSignup(true)} />;
-  }
-
-  const { currentFestival } = useFestival();
-  
-  if (!currentFestival) {
-    return <FestivalSetup />;
-  }
-
+  const { currentFestival, loading: festivalLoading } = useFestival();
   const db = useDatabase();
-
-// Create festival-scoped database
-
-  // Original code continues below
+  
+  const [showSignup, setShowSignup] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [scannedGear, setScannedGear] = useState(null);
   const [locations, setLocations] = useState([]);
@@ -93,11 +78,8 @@ function AppContent() {
   const [message, setMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  useEffect(() => {
-    loadLocations();
-  }, []);
-
   const loadLocations = useCallback(async () => {
+    if (!db) return;
     try {
       const locs = await db.locations.toArray();
       setLocations(locs);
@@ -110,38 +92,37 @@ function AppContent() {
     } catch (error) {
       console.error('Error loading locations:', error);
     }
-  }, []);
+  }, [db]);
 
   const handleScan = useCallback(async (qrData) => {
-  console.log('handleScan called with:', qrData);
-  
-  if (qrData && qrData.startsWith('GEAR:')) {
-    const gearId = qrData.replace('GEAR:', '').trim();
-
-    console.log('Parsed gear ID:', gearId);
-
-    if (!gearId) {
-      alert('Invalid QR code format');
-      return;
-    }
+    console.log('handleScan called with:', qrData);
     
-    try {
-      const gear = await db.gear.get(gearId);
-      
-      if (gear) {
-        setScannedGear(gear);
-        setActiveTab('scan');
-      } else {
-        alert(`Gear item ID ${gearId} not found in database`);
+    if (qrData && qrData.startsWith('GEAR:')) {
+      const gearId = qrData.replace('GEAR:', '').trim();
+      console.log('Parsed gear ID:', gearId);
+
+      if (!gearId) {
+        alert('Invalid QR code format');
+        return;
       }
-    } catch (error) {
-      console.error('Error fetching gear:', error);
-      alert('Error retrieving gear item: ' + error.message);
+      
+      try {
+        const gear = await db.gear.get(gearId);
+        
+        if (gear) {
+          setScannedGear(gear);
+          setActiveTab('scan');
+        } else {
+          alert(`Gear item ID ${gearId} not found in database`);
+        }
+      } catch (error) {
+        console.error('Error fetching gear:', error);
+        alert('Error retrieving gear item: ' + error.message);
+      }
+    } else {
+      alert('QR code does not match expected format (GEAR:ID)');
     }
-  } else {
-    alert('QR code does not match expected format (GEAR:ID)');
-  }
-}, []);
+  }, [db]);
 
   const handleLocationSelect = useCallback(async (locationId) => {
     if (!scannedGear) return;
@@ -203,7 +184,7 @@ function AppContent() {
       setMessage('❌ Error updating location');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [scannedGear]);
+  }, [scannedGear, db]);
 
   const handleCheckOut = useCallback(async (type) => {
     if (!scannedGear) return;
@@ -232,12 +213,37 @@ function AppContent() {
       setMessage('❌ Error checking out item');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [scannedGear]);
+  }, [scannedGear, db]);
 
   const handleLocationsUpdate = useCallback(() => {
     loadLocations();
     setRefreshTrigger(prev => prev + 1);
   }, [loadLocations]);
+
+  useEffect(() => {
+    if (currentUser && currentFestival && db) {
+      loadLocations();
+    }
+  }, [currentUser, currentFestival, db, loadLocations]);
+
+  // CONDITIONAL RETURNS AFTER ALL HOOKS
+  if (!currentUser) {
+  return showSignup ? 
+    <Signup onSwitchToLogin={() => setShowSignup(false)} /> : 
+    <Login onSwitchToSignup={() => setShowSignup(true)} />;
+}
+
+if (festivalLoading) {
+  return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+      <div style={{ color: 'white', fontSize: '18px' }}>Loading...</div>
+    </div>
+  );
+}
+
+if (!currentFestival) {
+  return <FestivalSetup />;
+}
 
   return (
     <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>

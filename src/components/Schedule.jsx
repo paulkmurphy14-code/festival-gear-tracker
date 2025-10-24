@@ -12,6 +12,16 @@ export default function Schedule({ locationColors }) {
   const [editForm, setEditForm] = useState({ location_id: '', date: '', time: '' });
   const [message, setMessage] = useState('');
 
+  // Temporary fix - run once to view location IDs
+  useEffect(() => {
+    if (locations.length > 0) {
+      console.log('Available locations:', locations.map(l => ({ 
+        id: l.id, 
+        name: l.name 
+      })));
+    }
+  }, [locations]);
+
   const loadData = useCallback(async () => {
     try {
       const perfs = await db.performances.toArray();
@@ -31,9 +41,9 @@ export default function Schedule({ locationColors }) {
   }, [loadData]);
 
   const getLocationInfo = useCallback((locationId) => {
-    const location = locations.find(loc => loc.id === locationId);
-    if (!location) return { name: 'Unknown', color: '#95a5a6' };
-    return { name: location.name, color: location.color };
+    const location = locations.find(loc => String(loc.id) === String(locationId));
+    if (!location) return { name: 'Unknown', color: '#95a5a6', emoji: '' };
+    return { name: location.name, color: location.color, emoji: location.emoji || '' };
   }, [locations]);
 
   const formatDate = (dateString) => {
@@ -103,7 +113,7 @@ export default function Schedule({ locationColors }) {
 
     try {
       await db.performances.update(perfId, {
-        location_id: parseInt(editForm.location_id),
+        location_id: editForm.location_id,
         date: editForm.date,
         time: editForm.time
       });
