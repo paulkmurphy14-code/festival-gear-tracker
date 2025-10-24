@@ -8,7 +8,9 @@ import {
   updateDoc, 
   deleteDoc,
   query,
-  where
+  where,
+  increment,
+  runTransaction
 } from 'firebase/firestore';
 
 export function getFirestoreDb(festivalId) {
@@ -19,10 +21,24 @@ export function getFirestoreDb(festivalId) {
   return {
     gear: {
       async add(data) {
-        const docRef = await addDoc(collection(db, `festivals/${festivalId}/gear`), data);
+        // Get and increment counter atomically
+        const festivalRef = doc(db, 'festivals', festivalId);
+        await updateDoc(festivalRef, {
+          gearCounter: increment(1)
+        });
+  
+        // Get the new counter value
+        const festivalDoc = await getDoc(festivalRef);
+        const displayId = festivalDoc.data().gearCounter;
+  
+        // Add gear with display_id
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/gear`), {
+          ...data,
+          display_id: displayId
+        });
+  
         return docRef.id;
       },
-      
       async get(id) {
         const docRef = doc(db, `festivals/${festivalId}/gear`, String(id));
         const docSnap = await getDoc(docRef);

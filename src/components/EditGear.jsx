@@ -450,7 +450,7 @@ export default function EditGear({ item, onSave, onCancel }) {
                 color: '#666',
                 textAlign: 'center'
               }}>
-                ID: {updatedItem.id}
+                #{String(updatedItem.display_id || '0000').padStart(4, '0')}
               </div>
             </div>
           </div>

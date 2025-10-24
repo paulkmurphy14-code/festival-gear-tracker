@@ -510,7 +510,7 @@ export default function RegisterGear() {
                   color: '#666',
                   textAlign: 'center'
                 }}>
-                  ID: {item.id}
+                  #{String(item.display_id || '0000').padStart(4, '0')}
                 </div>
               </div>
             ))}

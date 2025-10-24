@@ -188,7 +188,7 @@ export default function GearList({ locationColors }) {
                   {item.description}
                 </div>
                 <div style={{ fontSize: '13px', color: '#666' }}>
-                  {item.band_id} • ID: {item.id}
+                  {item.band_id} • #{String(item.display_id || '0000').padStart(4, '0')}
                 </div>
               </div>
             </div>
@@ -760,7 +760,7 @@ export default function GearList({ locationColors }) {
               color: '#666',
               textAlign: 'center'
             }}>
-              ID: {itemToPrint.id}
+              #{String(itemToPrint.display_id || '0000').padStart(4, '0')}
             </div>
           </div>
         </div>
