@@ -17,6 +17,7 @@ export default function GearList({ locationColors }) {
   const loadData = useCallback(async () => {
     try {
       const items = await localDb.gear.toArray();
+      console.log('Loaded items from Firestore:', items);
       const locs = await localDb.locations.toArray();
       const uniqueBands = [...new Set(items.map(item => item.band_id))].sort();
 
@@ -72,6 +73,10 @@ export default function GearList({ locationColors }) {
   };
 
   const handleReprint = (item) => {
+    console.log('Item being printed:', item);
+    console.log('QR code field:', item.qr_code ? 'EXISTS' : 'MISSING');
+    console.log('QR code length:', item.qr_code?.length);
+
   setItemToPrint(item);
   const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
   setTimeout(() => {

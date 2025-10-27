@@ -23,7 +23,7 @@ export default function EditGear({ item, onSave, onCancel }) {
   };
 
   const loadPerformances = async () => {
-    const perfs = await db.performances.where('band_id').equals(item.band_id).toArray();
+    const perfs = await db.performances.where('band_id', '==', item.band_id).toArray();
     setPerformances(perfs.map(p => ({
       id: p.id,
       location: p.location_id,

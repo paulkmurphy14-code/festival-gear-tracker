@@ -66,30 +66,35 @@ export default function RegisterGear() {
     }
 
     try {
-      const registered = [];
-      for (const item of validItems) {
-        const gearId = await db.gear.add({
-          band_id: bandName.trim(),
-          description: item.description.trim(),
-          qr_code: '',
-          current_location_id: null,
-          status: 'active',
-          created_at: new Date(),
-          in_transit: false,
-          checked_out: false,
-          lastUpdated: new Date()
-        });
-
-        const qrCode = await generateQRCode(gearId);
-        await db.gear.update(gearId, { qr_code: qrCode });
-
-        registered.push({
-          id: gearId,
-          band: bandName.trim(),
-          description: item.description.trim(),
-          qrCode: qrCode
-        });
-      }
+  const registered = [];
+  
+  for (const item of validItems) {
+    const gearId = await db.gear.add({
+      band_id: bandName.trim(),
+      description: item.description.trim(),
+      qr_code: '',
+      current_location_id: null,
+      status: 'active',
+      created_at: new Date(),
+      in_transit: false,
+      checked_out: false,
+      lastUpdated: new Date()
+    });
+    
+    const qrCode = await generateQRCode(gearId);
+    await db.gear.update(gearId, { qr_code: qrCode });
+    
+    // Only fetch display_id from Firestore
+    const savedItem = await db.gear.get(gearId);
+    
+    registered.push({
+      id: gearId,
+      band: bandName.trim(),
+      description: item.description.trim(),
+      qrCode: qrCode,
+      display_id: savedItem.display_id
+    });
+  }
 
       for (const perf of performances) {
         if (perf.location && perf.date && perf.time) {
@@ -113,7 +118,9 @@ export default function RegisterGear() {
   };
 
   const handlePrint = () => {
-    window.print();
+    setTimeout(() => {
+      window.print();
+    }, 500);
   };
 
   const handleReset = () => {
