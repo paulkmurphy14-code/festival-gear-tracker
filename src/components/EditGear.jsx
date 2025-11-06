@@ -431,9 +431,11 @@ export default function EditGear({ item, onSave, onCancel }) {
                 }}
               />
               <div style={{
-                fontSize: '5mm',
+                fontSize: '6.5mm',
                 fontWeight: 'bold',
-                marginBottom: '2mm',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5mm',
+                marginBottom: '3mm',
                 textAlign: 'center'
               }}>
                 {updatedItem.band_id}
@@ -446,7 +448,7 @@ export default function EditGear({ item, onSave, onCancel }) {
                 {updatedItem.description}
               </div>
               <div style={{
-                fontSize: '3.5mm',
+                fontSize: '3mm',
                 color: '#666',
                 textAlign: 'center'
               }}>

@@ -3,11 +3,12 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import EditGear from './EditGear';
 
 export default function GearList({ locationColors }) {
-  const localDb = useDatabase();
+  const db = useDatabase();
   const [gearItems, setGearItems] = useState([]);
   const [locations, setLocations] = useState([]);
   const [bands, setBands] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
+  const [editingLocationFor, setEditingLocationFor] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
@@ -16,9 +17,8 @@ export default function GearList({ locationColors }) {
 
   const loadData = useCallback(async () => {
     try {
-      const items = await localDb.gear.toArray();
-      console.log('Loaded items from Firestore:', items);
-      const locs = await localDb.locations.toArray();
+      const items = await db.gear.toArray();
+      const locs = await db.locations.toArray();
       const uniqueBands = [...new Set(items.map(item => item.band_id))].sort();
 
       setGearItems(items);
@@ -59,7 +59,7 @@ export default function GearList({ locationColors }) {
     const confirmed = window.confirm('Are you sure you want to delete this item? This cannot be undone.');
     if (confirmed) {
       try {
-        await localDb.gear.delete(id);
+        await db.gear.delete(id);
         loadData();
       } catch (error) {
         console.error('Error deleting gear:', error);
@@ -68,14 +68,37 @@ export default function GearList({ locationColors }) {
     }
   };
 
+  const handleLocationUpdate = useCallback(async (itemId, newLocationId) => {
+    try {
+      await db.gear.update(itemId, {
+        current_location_id: newLocationId,
+        in_transit: false,
+        checked_out: false,
+        transit_origin_id: null,
+        transit_destination_id: null,
+        lastUpdated: new Date()
+      });
+    
+      await db.scans.add({
+        gear_id: itemId,
+        location_id: newLocationId,
+        timestamp: new Date(),
+        synced: false
+      });
+    
+      setEditingLocationFor(null);
+      loadData();
+    } catch (error) {
+      console.error('Error updating location:', error);
+      alert('Error updating location');
+    }
+  }, [db]);
+
   const handleEdit = (item) => {
     setEditingItem(item);
   };
 
   const handleReprint = (item) => {
-    console.log('Item being printed:', item);
-    console.log('QR code field:', item.qr_code ? 'EXISTS' : 'MISSING');
-    console.log('QR code length:', item.qr_code?.length);
 
   setItemToPrint(item);
   const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
@@ -215,22 +238,32 @@ export default function GearList({ locationColors }) {
                   <span style={{ fontSize: '18px' }}>🎸</span>
                   <span>Checked Out to Band</span>
                 </div>
-              ) : item.in_transit ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                  color: 'white',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 8px rgba(255,169,77,0.3)'
-                }}>
-                  <span style={{ fontSize: '18px' }}>🚚</span>
-                  <span>In Transit</span>
-                </div>
+             ) : item.in_transit ? (
+               <div style={{
+                 display: 'inline-flex',
+                 alignItems: 'center',
+                 gap: '8px',
+                 padding: '8px 16px',
+                 background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
+                 color: 'white',
+                 borderRadius: '12px',
+                 fontSize: '14px',
+                 fontWeight: '600',
+                 boxShadow: '0 2px 8px rgba(255,169,77,0.3)'
+               }}>
+                 <span style={{ fontSize: '18px' }}>🚚</span>
+                 <span>
+                   {item.transit_origin_id && item.transit_destination_id ? (
+                     <>
+                       {getLocationInfo(item.transit_origin_id).name} → {getLocationInfo(item.transit_destination_id).name}
+                     </>
+                   ) : item.transit_origin_id ? (
+                     <>In Transit From {getLocationInfo(item.transit_origin_id).name}</>
+                   ) : (
+                     'In Transit'
+                   )}
+                 </span>
+               </div>
               ) : item.current_location_id ? (
                 <div style={{
                   display: 'inline-flex',
@@ -272,7 +305,63 @@ export default function GearList({ locationColors }) {
             </div>
           </div>
 
+    {/* Location Editor */}
+    {editingLocationFor === item.id && (
+      <div style={{
+        marginTop: '12px',
+        padding: '12px',
+        background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
+        borderRadius: '10px',
+        border: '1px solid #ffa94d'
+      }}>
+        <div style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#e65100' }}>
+          Select New Location:
+        </div>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          {locations.map(loc => (
+            <button
+              key={loc.id}
+              onClick={() => handleLocationUpdate(item.id, loc.id)}
+              style={{
+                padding: '8px 16px',
+                background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
+                color: 'white',
+                border: 'none',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '13px',
+                fontWeight: '600',
+                boxShadow: `0 2px 6px ${loc.color}40`
+              }}
+            >
+              {loc.name}
+            </button>
+          ))}
+        </div>
+      </div>
+    )}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '100px' }}>
+            <button
+              onClick={() => setEditingLocationFor(editingLocationFor === item.id ? null : item.id)}
+              style={{
+                padding: '10px 16px',
+                background: editingLocationFor === item.id ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : 'linear-gradient(135deg, #ffd43b 0%, #fab005 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: editingLocationFor === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(255,212,59,0.3)',
+                transition: 'transform 0.1s ease'
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              title="Change location"
+            >
+              📍 {editingLocationFor === item.id ? 'Cancel' : 'Location'}
+            </button>
             <button
               onClick={() => handleReprint(item)}
               style={{
@@ -745,14 +834,16 @@ export default function GearList({ locationColors }) {
                 margin: '0 auto 3mm auto'
               }}
             />
-            <div style={{
-              fontSize: '5mm',
-              fontWeight: 'bold',
-              marginBottom: '2mm',
-              textAlign: 'center'
-            }}>
-              {itemToPrint.band_id}
-            </div>
+           <div style={{
+             fontSize: '6.5mm',
+             fontWeight: 'bold',
+             textTransform: 'uppercase',
+             letterSpacing: '0.5mm',
+             marginBottom: '3mm',
+             textAlign: 'center'
+           }}>
+             {itemToPrint.band_id}
+           </div>
             <div style={{
               fontSize: '4.5mm',
               marginBottom: '2mm',
@@ -761,7 +852,7 @@ export default function GearList({ locationColors }) {
               {itemToPrint.description}
             </div>
             <div style={{
-              fontSize: '3.5mm',
+              fontSize: '3mm',
               color: '#666',
               textAlign: 'center'
             }}>
@@ -793,9 +884,11 @@ export default function GearList({ locationColors }) {
                 }}
               />
               <div style={{
-                fontSize: '5mm',
+                fontSize: '6.5mm',
                 fontWeight: 'bold',
-                marginBottom: '2mm',
+                textTransform: 'uppercase',
+                letterSpacing: '0.5mm',
+                marginBottom: '3mm',
                 textAlign: 'center'
               }}>
                 {item.band_id}
@@ -808,7 +901,7 @@ export default function GearList({ locationColors }) {
                 {item.description}
               </div>
               <div style={{
-                fontSize: '3.5mm',
+                fontSize: '3mm',
                 color: '#666',
                 textAlign: 'center'
               }}>

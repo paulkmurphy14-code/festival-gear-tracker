@@ -505,9 +505,11 @@ export default function PreparedGate() {
                     }}
                   />
                   <div style={{
-                    fontSize: '5mm',
+                    fontSize: '6.5mm',
                     fontWeight: 'bold',
-                    marginBottom: '2mm',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5mm',
+                    marginBottom: '3mm',
                     textAlign: 'center'
                   }}>
                     {item.band}
@@ -520,7 +522,7 @@ export default function PreparedGate() {
                     {item.description}
                   </div>
                   <div style={{
-                    fontSize: '3.5mm',
+                    fontSize: '3mm',
                     color: '#666',
                     textAlign: 'center'
                   }}>

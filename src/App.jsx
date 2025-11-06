@@ -133,6 +133,8 @@ function AppContent() {
           current_location_id: locationId,
           checked_out: false,
           in_transit: false,
+          transit_origin_id: null,  // Clear transit data
+          transit_destination_id: null,
           lastUpdated: new Date()
         });
         
@@ -148,6 +150,7 @@ function AppContent() {
         await db.gear.update(scannedGear.id, {
           current_location_id: locationId,
           in_transit: false,
+          transit_destination_id: locationId,  // Capture destination
           lastUpdated: new Date()
         });
         
@@ -193,6 +196,8 @@ function AppContent() {
       if (type === 'transit') {
         await db.gear.update(scannedGear.id, {
           in_transit: true,
+          transit_origin_id: scannedGear.current_location_id,
+          transit_destination_id: null,  // Will be set when checking in
           lastUpdated: new Date()
         });
         setMessage('✓ Item checked out for transit!');
