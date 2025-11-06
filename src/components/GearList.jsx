@@ -93,6 +93,43 @@ export default function GearList({ locationColors }) {
       alert('Error updating location');
     }
   }, [db]);
+  const handleBulkCheckout = useCallback(async (type) => {
+    if (selectedItems.length === 0) return;
+  
+    const confirmed = window.confirm(
+      `Check out ${selectedItems.length} item(s) ${type === 'transit' ? 'for transit' : 'to band'}?`
+    );
+  
+    if (!confirmed) return;
+  
+    try {
+      for (const itemId of selectedItems) {
+        const item = gearItems.find(i => i.id === itemId);
+        if (!item) continue;
+      
+        if (type === 'transit') {
+          await db.gear.update(itemId, {
+            in_transit: true,
+            transit_origin_id: item.current_location_id,
+            transit_destination_id: null,
+            lastUpdated: new Date()
+          });
+        } else if (type === 'band') {
+          await db.gear.update(itemId, {
+            checked_out: true,
+            lastUpdated: new Date()
+          });
+        }
+      }
+    
+    setSelectedItems([]);
+    loadData();
+    alert(`✓ ${selectedItems.length} item(s) checked out successfully!`);
+  } catch (error) {
+    console.error('Error with bulk checkout:', error);
+    alert('❌ Error checking out items');
+  }
+}, [selectedItems, gearItems, db]);
 
   const handleEdit = (item) => {
     setEditingItem(item);
@@ -340,6 +377,7 @@ export default function GearList({ locationColors }) {
         </div>
       </div>
     )}
+  
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '100px' }}>
             <button
               onClick={() => setEditingLocationFor(editingLocationFor === item.id ? null : item.id)}
@@ -764,6 +802,40 @@ export default function GearList({ locationColors }) {
               >
                 🖨️ Print {selectedItems.length} Label{selectedItems.length !== 1 ? 's' : ''}
               </button>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
+                <button
+                  onClick={() => handleBulkCheckout('transit')}
+                  style={{
+                    padding: '14px 28px',
+                    background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    boxShadow: '0 4px 12px rgba(255,169,77,0.3)'
+                  }}
+                >
+                  🚚 Check Out for Transit ({selectedItems.length})
+                </button>
+                <button
+                  onClick={() => handleBulkCheckout('band')}
+                  style={{
+                    padding: '14px 28px',
+                    background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '12px',
+                    cursor: 'pointer',
+                    fontSize: '16px',
+                    fontWeight: '700',
+                    boxShadow: '0 4px 12px rgba(134,142,150,0.3)'
+                  }}
+                >
+                  📦 Check Out to Band ({selectedItems.length})
+                </button>
+              </div>
             </div>
           )}
 
