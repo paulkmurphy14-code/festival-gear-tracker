@@ -3,7 +3,7 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import EditGear from './EditGear';
 import ScanHistory from './ScanHistory';
 
-export default function GearList({ locationColors }) {
+export default function GearList({ locationColors, currentUser }) {
   const db = useDatabase();
   const [gearItems, setGearItems] = useState([]);
   const [locations, setLocations] = useState([]);
@@ -87,7 +87,7 @@ export default function GearList({ locationColors }) {
         timestamp: new Date(),
         synced: false,
         user_id: 'manual_edit',  // We don't have currentUser in GearList yet
-        user_email: 'Manual location change',
+        user_email: currentUser?.email || 'Unknown user',
         action: 'manual_location_change'
       });
     
@@ -127,7 +127,7 @@ export default function GearList({ locationColors }) {
           timestamp: new Date(),
           synced: false,
           user_id: 'bulk_action',
-          user_email: 'Bulk checkout',
+          user_email: currentUser?.email || 'Unknown user',
           action: 'bulk_check_out_transit'
         });
       } else if (type === 'band') {
@@ -142,7 +142,7 @@ export default function GearList({ locationColors }) {
           timestamp: new Date(),
           synced: false,
           user_id: 'bulk_action',
-          user_email: 'Bulk checkout',
+          user_email: currentUser?.email || 'Unknown user',
           action: 'bulk_check_out_band'
         });
       }
@@ -184,7 +184,7 @@ export default function GearList({ locationColors }) {
           timestamp: new Date(),
           synced: false,
           user_id: 'bulk_action',
-          user_email: 'Bulk location change',
+          user_email: currentUser?.email || 'Unknown user',
           action: 'bulk_location_change'
         });
       }

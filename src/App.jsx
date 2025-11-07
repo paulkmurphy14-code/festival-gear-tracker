@@ -579,7 +579,11 @@ if (!currentFestival) {
       
       {activeTab === 'gear' && (
         <PageContainer>
-          <GearList key={refreshTrigger} locationColors={locationColors} />
+          <GearList 
+            key={refreshTrigger} 
+            locationColors={locationColors}
+            currentUser={currentUser}
+          />
         </PageContainer>
       )}
       
