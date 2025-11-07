@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import EditGear from './EditGear';
+import ScanHistory from './ScanHistory';
 
 export default function GearList({ locationColors }) {
   const db = useDatabase();
@@ -9,6 +10,7 @@ export default function GearList({ locationColors }) {
   const [bands, setBands] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
   const [editingLocationFor, setEditingLocationFor] = useState(null);
+  const [viewingHistory, setViewingHistory] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
@@ -83,7 +85,10 @@ export default function GearList({ locationColors }) {
         gear_id: itemId,
         location_id: newLocationId,
         timestamp: new Date(),
-        synced: false
+        synced: false,
+        user_id: 'manual_edit',  // We don't have currentUser in GearList yet
+        user_email: 'Manual location change',
+        action: 'manual_location_change'
       });
     
       setEditingLocationFor(null);
@@ -93,35 +98,56 @@ export default function GearList({ locationColors }) {
       alert('Error updating location');
     }
   }, [db]);
+
   const handleBulkCheckout = useCallback(async (type) => {
-    if (selectedItems.length === 0) return;
-  
-    const confirmed = window.confirm(
-      `Check out ${selectedItems.length} item(s) ${type === 'transit' ? 'for transit' : 'to band'}?`
-    );
-  
-    if (!confirmed) return;
-  
-    try {
-      for (const itemId of selectedItems) {
-        const item = gearItems.find(i => i.id === itemId);
-        if (!item) continue;
-      
-        if (type === 'transit') {
-          await db.gear.update(itemId, {
-            in_transit: true,
-            transit_origin_id: item.current_location_id,
-            transit_destination_id: null,
-            lastUpdated: new Date()
-          });
-        } else if (type === 'band') {
-          await db.gear.update(itemId, {
-            checked_out: true,
-            lastUpdated: new Date()
-          });
-        }
-      }
+  if (selectedItems.length === 0) return;
+
+  const confirmed = window.confirm(
+    `Check out ${selectedItems.length} item(s) ${type === 'transit' ? 'for transit' : 'to band'}?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    for (const itemId of selectedItems) {
+      const item = gearItems.find(i => i.id === itemId);
+      if (!item) continue;
     
+      if (type === 'transit') {
+        await db.gear.update(itemId, {
+          in_transit: true,
+          transit_origin_id: item.current_location_id,
+          transit_destination_id: null,
+          lastUpdated: new Date()
+        });
+        
+        await db.scans.add({
+          gear_id: itemId,
+          location_id: item.current_location_id,
+          timestamp: new Date(),
+          synced: false,
+          user_id: 'bulk_action',
+          user_email: 'Bulk checkout',
+          action: 'bulk_check_out_transit'
+        });
+      } else if (type === 'band') {
+        await db.gear.update(itemId, {
+          checked_out: true,
+          lastUpdated: new Date()
+        });
+        
+        await db.scans.add({
+          gear_id: itemId,
+          location_id: item.current_location_id,
+          timestamp: new Date(),
+          synced: false,
+          user_id: 'bulk_action',
+          user_email: 'Bulk checkout',
+          action: 'bulk_check_out_band'
+        });
+      }
+    }
+  
     setSelectedItems([]);
     loadData();
     alert(`✓ ${selectedItems.length} item(s) checked out successfully!`);
@@ -131,9 +157,62 @@ export default function GearList({ locationColors }) {
   }
 }, [selectedItems, gearItems, db]);
 
-  const handleEdit = (item) => {
-    setEditingItem(item);
-  };
+  const handleBulkLocationChange = useCallback(async (newLocationId) => {
+    if (selectedItems.length === 0) return;
+  
+    const locationName = getLocationInfo(newLocationId).name;
+    const confirmed = window.confirm(
+      `Move ${selectedItems.length} item(s) to ${locationName}?`
+    );
+  
+    if (!confirmed) return;
+  
+    try {
+      for (const itemId of selectedItems) {
+        await db.gear.update(itemId, {
+          current_location_id: newLocationId,
+          in_transit: false,
+          checked_out: false,
+          transit_origin_id: null,
+          transit_destination_id: null,
+          lastUpdated: new Date()
+        });
+     
+        await db.scans.add({
+          gear_id: itemId,
+          location_id: newLocationId,
+          timestamp: new Date(),
+          synced: false,
+          user_id: 'bulk_action',
+          user_email: 'Bulk location change',
+          action: 'bulk_location_change'
+        });
+      }
+    
+      setSelectedItems([]);
+      loadData();
+      alert(`✓ ${selectedItems.length} item(s) moved to ${locationName}!`);
+    } catch (error) {
+      console.error('Error with bulk location change:', error);
+      alert('❌ Error moving items');
+    }
+  }, [selectedItems, db, getLocationInfo]);
+
+  const loadScanHistory = useCallback(async (gearId) => {
+    try {
+      const scans = await db.scans.where('gear_id', '==', gearId).toArray();
+      // Sort by timestamp descending (newest first)
+      scans.sort((a, b) => {
+        const timeA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
+        const timeB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
+        return timeB - timeA;
+      });
+      return scans;
+    } catch (error) {
+      console.error('Error loading scan history:', error);
+      return [];
+    }
+  }, [db]);
 
   const handleReprint = (item) => {
 
@@ -377,6 +456,11 @@ export default function GearList({ locationColors }) {
         </div>
       </div>
     )}
+
+    {/* Scan History Viewer */}
+    {viewingHistory === item.id && (
+      <ScanHistory gearId={item.id} loadScanHistory={loadScanHistory} getLocationInfo={getLocationInfo} />
+    )}
   
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '100px' }}>
             <button
@@ -400,6 +484,29 @@ export default function GearList({ locationColors }) {
             >
               📍 {editingLocationFor === item.id ? 'Cancel' : 'Location'}
             </button>
+
+            <button
+              onClick={() => setViewingHistory(viewingHistory === item.id ? null : item.id)}
+              style={{
+                padding: '10px 16px',
+                background: viewingHistory === item.id ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                boxShadow: viewingHistory === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(77,171,247,0.3)',
+                transition: 'transform 0.1s ease'
+              }}
+              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
+              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+              title="View scan history"
+            >
+              📜 {viewingHistory === item.id ? 'Close' : 'History'}
+            </button>
+
             <button
               onClick={() => handleReprint(item)}
               style={{
@@ -411,7 +518,7 @@ export default function GearList({ locationColors }) {
                 cursor: 'pointer',
                 fontSize: '14px',
                 fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(204,93,232,0.3)',
+                boxShadow: viewingHistory === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(77,171,247,0.3)',
                 transition: 'transform 0.1s ease'
               }}
               onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
@@ -802,6 +909,41 @@ export default function GearList({ locationColors }) {
               >
                 🖨️ Print {selectedItems.length} Label{selectedItems.length !== 1 ? 's' : ''}
               </button>
+
+              {/* Bulk Location Change */}
+              <div style={{ marginBottom: '20px' }}>
+                <div style={{ 
+                  fontSize: '14px', 
+                  fontWeight: '600', 
+                  marginBottom: '10px',
+                  color: '#495057'
+                }}>
+                  📍 Move Selected Items to Location:
+                </div>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  {locations.map(loc => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleBulkLocationChange(loc.id)}
+                      style={{
+                        padding: '10px 20px',
+                        background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '10px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        boxShadow: `0 2px 6px ${loc.color}40`
+                      }}
+                    >
+                      {loc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+
               <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
                 <button
                   onClick={() => handleBulkCheckout('transit')}

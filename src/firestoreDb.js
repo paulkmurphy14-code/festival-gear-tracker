@@ -8,7 +8,7 @@ import {
   updateDoc, 
   deleteDoc,
   query,
-  where,
+  where as fbWhere,
   increment,
   runTransaction
 } from 'firebase/firestore';
@@ -64,7 +64,7 @@ export function getFirestoreDb(festivalId) {
           async toArray() {
             const q = query(
               collection(db, `festivals/${festivalId}/gear`),
-              where(field, operator === 'equals' ? '==' : operator, value)
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
             );
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -129,7 +129,7 @@ export function getFirestoreDb(festivalId) {
           async toArray() {
             const q = query(
               collection(db, `festivals/${festivalId}/performances`),
-              where(field, operator === 'equals' ? '==' : operator, value)
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
             );
             const snapshot = await getDocs(q);
             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -153,9 +153,22 @@ export function getFirestoreDb(festivalId) {
     },
     
     scans: {
-      async add(data) {
-        await addDoc(collection(db, `festivals/${festivalId}/scans`), data);
-      }
-    }
+       async add(data) {
+         await addDoc(collection(db, `festivals/${festivalId}/scans`), data);
+       },
+  
+       where(field, operator, value) {
+         return {
+           async toArray() {
+             const q = query(
+               collection(db, `festivals/${festivalId}/scans`),
+               fbWhere(field, operator === '==' ? '==' : operator, value)
+             );
+             const snapshot = await getDocs(q);
+             return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+           }
+         };
+       }
+     }
   };
 }

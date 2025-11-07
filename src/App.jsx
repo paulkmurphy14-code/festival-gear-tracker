@@ -142,7 +142,10 @@ function AppContent() {
           gear_id: scannedGear.id,
           location_id: locationId,
           timestamp: new Date(),
-          synced: false
+          synced: false,
+          user_id: currentUser.uid,
+          user_email: currentUser.email,
+          action: 'check_in_from_band'
         });
         
         setMessage('✓ Item checked back in successfully!');
@@ -158,7 +161,10 @@ function AppContent() {
           gear_id: scannedGear.id,
           location_id: locationId,
           timestamp: new Date(),
-          synced: false
+          synced: false,
+          user_id: currentUser.uid,
+          user_email: currentUser.email,
+          action: 'check_in_from_transit'
         });
         
         setMessage('✓ Item checked in successfully!');
@@ -172,7 +178,10 @@ function AppContent() {
           gear_id: scannedGear.id,
           location_id: locationId,
           timestamp: new Date(),
-          synced: false
+          synced: false,
+          user_id: currentUser.uid,
+          user_email: currentUser.email,
+          action: 'location_change'
         });
         
         setMessage('✓ Location updated successfully!');
@@ -200,12 +209,34 @@ function AppContent() {
           transit_destination_id: null,  // Will be set when checking in
           lastUpdated: new Date()
         });
+        
+        await db.scans.add({
+          gear_id: scannedGear.id,
+          location_id: scannedGear.current_location_id,
+          timestamp: new Date(),
+          synced: false,
+          user_id: currentUser.uid,
+          user_email: currentUser.email,
+          action: 'check_out_transit'
+        });
+
         setMessage('✓ Item checked out for transit!');
       } else if (type === 'band') {
         await db.gear.update(scannedGear.id, {
           checked_out: true,
           lastUpdated: new Date()
         });
+
+        await db.scans.add({
+          gear_id: scannedGear.id,
+          location_id: scannedGear.current_location_id,
+          timestamp: new Date(),
+          synced: false,
+          user_id: currentUser.uid,
+          user_email: currentUser.email,
+          action: 'check_out_band'
+        });
+
         setMessage('✓ Item checked out to band!');
       }
       
