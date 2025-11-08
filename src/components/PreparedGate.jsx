@@ -176,7 +176,7 @@ export default function PreparedGate() {
   };
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+    <div>
       <div style={{
         background: 'white',
         borderRadius: '20px',

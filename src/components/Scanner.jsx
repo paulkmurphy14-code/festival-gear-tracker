@@ -143,7 +143,7 @@ export default function Scanner({ onScan }) {
   };
 
   return (
-    <div className="component-content">
+    <div>
       {error ? (
         <div style={styles.errorBox}>
           {error}

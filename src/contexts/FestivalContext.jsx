@@ -15,6 +15,27 @@ export function FestivalProvider({ children }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    async function loadUserFestival() {
+      setLoading(true);
+      try {
+        const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
+
+        if (userDoc.exists() && userDoc.data().festivalId) {
+          const festivalDoc = await getDoc(doc(db, 'festivals', userDoc.data().festivalId));
+
+          if (festivalDoc.exists()) {
+            setCurrentFestival({
+              id: festivalDoc.id,
+              ...festivalDoc.data()
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading festival:', error);
+      }
+      setLoading(false);
+    }
+
     if (!currentUser) {
       setCurrentFestival(null);
       setLoading(false);
@@ -23,27 +44,6 @@ export function FestivalProvider({ children }) {
 
     loadUserFestival();
   }, [currentUser]);
-
-  async function loadUserFestival() {
-    setLoading(true);
-    try {
-      const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
-      
-      if (userDoc.exists() && userDoc.data().festivalId) {
-        const festivalDoc = await getDoc(doc(db, 'festivals', userDoc.data().festivalId));
-        
-        if (festivalDoc.exists()) {
-          setCurrentFestival({
-            id: festivalDoc.id,
-            ...festivalDoc.data()
-          });
-        }
-      }
-    } catch (error) {
-      console.error('Error loading festival:', error);
-    }
-    setLoading(false);
-  }
 
  async function createFestival(formData) {
   try {
@@ -72,7 +72,16 @@ export function FestivalProvider({ children }) {
       setCurrentFestival({
         id: festivalRef.id,
         name: formData.festivalName,
-        ownerId: currentUser.uid
+        registrarName: formData.registrarName,
+        location: formData.location,
+        contactEmail: formData.contactEmail,
+        contactPhone: formData.contactPhone || '',
+        startDate: formData.startDate || null,
+        endDate: formData.endDate || null,
+        ownerId: currentUser.uid,
+        createdAt: new Date(),
+        licenseStatus: 'trial',
+        licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       });
 
       return festivalRef.id;

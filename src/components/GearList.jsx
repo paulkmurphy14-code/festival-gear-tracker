@@ -102,7 +102,7 @@ export default function GearList({ locationColors, currentUser }) {
       console.error('Error updating location:', error);
       alert('Error updating location');
     }
-  }, [db, currentUser]);
+  }, [db, currentUser, loadData]);
 
   const handleBulkCheckout = useCallback(async (type) => {
     if (selectedItems.length === 0) return;
@@ -555,7 +555,7 @@ export default function GearList({ locationColors, currentUser }) {
   }
 
   return (
-    <div className="component-content">
+    <div>
       <style>{`
         @keyframes pulse {
           0%, 100% {

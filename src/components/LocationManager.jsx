@@ -283,7 +283,7 @@ export default function LocationManager({ onUpdate }) {
   };
 
   return (
-    <div className="component-content">
+    <div>
       <div style={styles.pageTitle}>Manage Locations</div>
 
       {message && (

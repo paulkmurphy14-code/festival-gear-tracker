@@ -333,7 +333,7 @@ export default function Schedule({ locationColors }) {
   };
 
   return (
-    <div className="component-content">
+    <div>
       {message && (
         <div style={styles.message}>
           {message}

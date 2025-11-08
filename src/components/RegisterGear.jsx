@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { generateQRCode } from '../utils/qrCode';
 
@@ -9,15 +9,20 @@ export default function RegisterGear() {
   const [registeredItems, setRegisteredItems] = useState([]);
   const [message, setMessage] = useState('');
   const [locations, setLocations] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const loadLocations = useCallback(async () => {
+    try {
+      const locs = await db.locations.toArray();
+      setLocations(locs);
+    } catch (error) {
+      console.error('Error loading locations:', error);
+    }
+  }, [db]);
 
   useEffect(() => {
     loadLocations();
-  }, []);
-
-  const loadLocations = async () => {
-    const locs = await db.locations.toArray();
-    setLocations(locs);
-  };
+  }, [loadLocations]);
 
   const handleAddItem = () => {
     setItems([...items, { description: '', initialLocation: '' }]);
@@ -49,9 +54,10 @@ export default function RegisterGear() {
       return;
     }
 
+    setIsLoading(true);
     try {
       const registered = [];
-      
+
       for (const item of validItems) {
         const gearId = await db.gear.add({
           band_id: bandName.trim(),
@@ -64,12 +70,12 @@ export default function RegisterGear() {
           checked_out: false,
           lastUpdated: new Date()
         });
-        
+
         const qrCode = await generateQRCode(gearId);
         await db.gear.update(gearId, { qr_code: qrCode });
-        
+
         const savedItem = await db.gear.get(gearId);
-        
+
         registered.push({
           id: gearId,
           band: bandName.trim(),
@@ -86,6 +92,8 @@ export default function RegisterGear() {
       console.error('Error registering gear:', error);
       setMessage('Error registering items');
       setTimeout(() => setMessage(''), 3000);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -232,7 +240,7 @@ export default function RegisterGear() {
   };
 
   return (
-    <div className="component-content">
+    <div>
       {registeredItems.length === 0 ? (
         <div>
           <div style={styles.pageTitle}>Register New Gear</div>
@@ -292,8 +300,16 @@ export default function RegisterGear() {
             </div>
           ))}
 
-          <button onClick={handleRegister} style={styles.button}>
-            ✓ Register & Print QR
+          <button
+            onClick={handleRegister}
+            disabled={isLoading}
+            style={{
+              ...styles.button,
+              opacity: isLoading ? 0.6 : 1,
+              cursor: isLoading ? 'not-allowed' : 'pointer'
+            }}
+          >
+            {isLoading ? '⏳ Registering...' : '✓ Register & Print QR'}
           </button>
 
           <button onClick={handleAddItem} style={styles.buttonSecondary}>

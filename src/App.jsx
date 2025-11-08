@@ -50,6 +50,14 @@ const GlobalStyles = () => (
     button:active {
       transform: scale(0.98);
     }
+
+    /* Page width consistency */
+    .page-wrapper {
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+      box-sizing: border-box;
+    }
   `}</style>
 );
 
@@ -129,7 +137,7 @@ function AppContent() {
 
       await db.gear.update(scannedGear.id, updateData);
 
-      await db.scan_history.add({
+      await db.scans.add({
         gear_id: scannedGear.id,
         location_id: locationId,
         scanned_at: new Date(),
@@ -165,7 +173,7 @@ function AppContent() {
 
       await db.gear.update(scannedGear.id, updateData);
 
-      await db.scan_history.add({
+      await db.scans.add({
         gear_id: scannedGear.id,
         location_id: scannedGear.current_location_id,
         scanned_at: new Date(),
@@ -417,7 +425,7 @@ function AppContent() {
 
         {/* Content Pages */}
         {activeTab === 'chaos' && (
-          <div>
+          <>
             <RegisterGear locationColors={locationColors} />
             <button
               onClick={() => setActiveTab('home')}
@@ -438,11 +446,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'prepared' && (
-          <div>
+          <>
             <PreparedGate locationColors={locationColors} />
             <button
               onClick={() => setActiveTab('home')}
@@ -463,11 +471,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'schedule' && (
-          <div>
+          <>
             <Schedule key={refreshTrigger} locationColors={locationColors} />
             <button
               onClick={() => setActiveTab('home')}
@@ -488,11 +496,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'gear' && (
-          <div>
+          <>
             <GearList key={refreshTrigger} locationColors={locationColors} currentUser={currentUser} />
             <button
               onClick={() => setActiveTab('home')}
@@ -513,11 +521,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'locations' && (
-          <div>
+          <>
             <LocationManager onUpdate={handleLocationsUpdate} />
             <button
               onClick={() => setActiveTab('home')}
@@ -538,11 +546,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'scanner' && (
-          <div>
+          <>
             <Scanner onScan={handleScan} />
             <button
               onClick={() => setActiveTab('home')}
@@ -563,11 +571,11 @@ function AppContent() {
             >
               Back to Home
             </button>
-          </div>
+          </>
         )}
 
         {activeTab === 'scanned' && scannedGear && (
-          <div>
+         <>
             <div style={{
               padding: '20px',
               backgroundColor: '#2d2d2d',
@@ -803,7 +811,7 @@ function AppContent() {
             >
               Cancel
             </button>
-          </div>
+          </>
         )}
       </div>
     </div>
