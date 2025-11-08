@@ -2,19 +2,19 @@ import { useState, useEffect } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 
 export default function LocationManager({ onUpdate }) {
-  const db = useDatabase()
+  const db = useDatabase();
   const [locations, setLocations] = useState([]);
   const [editingId, setEditingId] = useState(null);
-  const [editForm, setEditForm] = useState({ name: '', color: '#0066cc' });
+  const [editForm, setEditForm] = useState({ name: '', color: '#4caf50' });
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newLocation, setNewLocation] = useState({ name: '', color: '#0066cc' });
+  const [newLocation, setNewLocation] = useState({ name: '', color: '#4caf50' });
   const [message, setMessage] = useState('');
 
   const colorPresets = [
+    { name: 'Green', value: '#4caf50' },
+    { name: 'Blue', value: '#2196f3' },
+    { name: 'Orange', value: '#ff9800' },
     { name: 'Red', value: '#e74c3c' },
-    { name: 'Blue', value: '#3498db' },
-    { name: 'Orange', value: '#f39c12' },
-    { name: 'Green', value: '#2ecc71' },
     { name: 'Purple', value: '#9b59b6' },
     { name: 'Pink', value: '#e91e63' },
     { name: 'Yellow', value: '#f1c40f' },
@@ -33,7 +33,7 @@ export default function LocationManager({ onUpdate }) {
 
   const handleAddLocation = async () => {
     if (!newLocation.name.trim()) {
-      setMessage('❌ Location name is required');
+      setMessage('Location name is required');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -43,19 +43,19 @@ export default function LocationManager({ onUpdate }) {
         name: newLocation.name.trim(),
         type: 'custom',
         color: newLocation.color,
-        emoji: '' // Keep field but don't expose in UI
+        emoji: ''
       });
 
-      setMessage('✓ Location added successfully!');
+      setMessage('Location added successfully');
       setTimeout(() => setMessage(''), 3000);
       
-      setNewLocation({ name: '', color: '#0066cc' });
+      setNewLocation({ name: '', color: '#4caf50' });
       setShowAddForm(false);
       loadLocations();
       
       if (onUpdate) onUpdate();
     } catch (error) {
-      setMessage('❌ Error adding location');
+      setMessage('Error adding location');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -70,12 +70,13 @@ export default function LocationManager({ onUpdate }) {
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditForm({ name: '', color: '#0066cc' });
+    setShowAddForm(false);
+    setEditForm({ name: '', color: '#4caf50' });
   };
 
   const saveEdit = async (id) => {
     if (!editForm.name.trim()) {
-      setMessage('❌ Location name is required');
+      setMessage('Location name is required');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
@@ -86,7 +87,7 @@ export default function LocationManager({ onUpdate }) {
         color: editForm.color
       });
 
-      setMessage('✓ Location updated successfully!');
+      setMessage('Location updated successfully');
       setTimeout(() => setMessage(''), 3000);
       
       setEditingId(null);
@@ -94,19 +95,19 @@ export default function LocationManager({ onUpdate }) {
       
       if (onUpdate) onUpdate();
     } catch (error) {
-      setMessage('❌ Error updating location');
+      setMessage('Error updating location');
       setTimeout(() => setMessage(''), 3000);
     }
   };
 
   const deleteLocation = async (id) => {
     const gearAtLocation = await db.gear.where('current_location_id', '==', id).count();
-    const performancesAtLocation = await db.performances.where('location_id', '==', id).count();;
+    const performancesAtLocation = await db.performances.where('location_id', '==', id).count();
 
     let warningMessage = 'Are you sure you want to delete this location?';
 
     if (gearAtLocation > 0 || performancesAtLocation > 0) {
-      warningMessage = `WARNING: This location has ${gearAtLocation} gear item(s) and ${performancesAtLocation} scheduled performance(s).\n\nDeleting this location will:\n- Remove location from all gear items\n- Delete all performances at this location\n\nAre you sure you want to continue?`;
+      warningMessage = `WARNING: This location has ${gearAtLocation} gear item(s) and ${performancesAtLocation} scheduled performance(s).\n\nDeleting will remove location from all gear items and delete all performances.\n\nContinue?`;
     }
 
     const confirmed = window.confirm(warningMessage);
@@ -117,323 +118,291 @@ export default function LocationManager({ onUpdate }) {
         await db.performances.where('location_id', '==', id).delete();
         await db.locations.delete(id);
 
-        setMessage('✓ Location deleted successfully');
+        setMessage('Location deleted successfully');
         setTimeout(() => setMessage(''), 3000);
         
         loadLocations();
         
         if (onUpdate) onUpdate();
       } catch (error) {
-        setMessage('❌ Error deleting location');
+        setMessage('Error deleting location');
         setTimeout(() => setMessage(''), 3000);
       }
     }
   };
 
+  const styles = {
+    pageTitle: {
+      marginBottom: '20px',
+      textAlign: 'center',
+      color: '#ffa500',
+      fontSize: '14px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    message: {
+      padding: '15px',
+      marginBottom: '20px',
+      backgroundColor: message.includes('Error') || message.includes('required') ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)',
+      color: message.includes('Error') || message.includes('required') ? '#ff6b6b' : '#4caf50',
+      borderRadius: '6px',
+      border: `2px solid ${message.includes('Error') || message.includes('required') ? '#f44336' : '#4caf50'}`,
+      fontSize: '14px',
+      fontWeight: '600'
+    },
+    locationCard: (color) => ({
+      background: '#2d2d2d',
+      padding: '16px',
+      borderRadius: '6px',
+      marginBottom: '12px',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      borderLeft: `4px solid ${color}`
+    }),
+    locationName: {
+      color: '#ffa500',
+      fontSize: '15px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    locationActions: {
+      display: 'flex',
+      gap: '8px'
+    },
+    iconBtn: {
+      width: '36px',
+      height: '36px',
+      background: '#3a3a3a',
+      border: 'none',
+      borderRadius: '4px',
+      color: '#ffa500',
+      fontSize: '16px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center'
+    },
+    addBtn: {
+      width: '100%',
+      padding: '14px',
+      background: '#2d2d2d',
+      border: '2px dashed #ffa500',
+      borderRadius: '6px',
+      color: '#ffa500',
+      fontSize: '13px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    editForm: {
+      padding: '20px',
+      backgroundColor: '#2d2d2d',
+      borderRadius: '6px',
+      marginBottom: '16px',
+      border: '2px solid #ffa500',
+      borderLeft: '4px solid #ffa500'
+    },
+    formTitle: {
+      marginTop: 0,
+      marginBottom: '20px',
+      color: '#ffa500',
+      fontSize: '16px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    formGroup: {
+      marginBottom: '20px'
+    },
+    label: {
+      display: 'block',
+      marginBottom: '8px',
+      fontWeight: '700',
+      color: '#ffa500',
+      fontSize: '12px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    input: {
+      width: '100%',
+      padding: '12px',
+      fontSize: '14px',
+      borderRadius: '4px',
+      border: '2px solid #3a3a3a',
+      boxSizing: 'border-box',
+      color: '#e0e0e0',
+      backgroundColor: '#1a1a1a'
+    },
+    colorGrid: {
+      display: 'flex',
+      gap: '10px',
+      flexWrap: 'wrap',
+      marginBottom: '10px'
+    },
+    colorButton: (color, isSelected) => ({
+      width: '40px',
+      height: '40px',
+      backgroundColor: color,
+      border: isSelected ? '3px solid #ffa500' : '2px solid #3a3a3a',
+      borderRadius: '5px',
+      cursor: 'pointer',
+      position: 'relative'
+    }),
+    buttonRow: {
+      display: 'flex',
+      gap: '10px'
+    },
+    saveButton: {
+      padding: '12px 24px',
+      backgroundColor: '#4caf50',
+      color: '#1a1a1a',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontWeight: '700',
+      fontSize: '14px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    cancelButton: {
+      padding: '12px 24px',
+      backgroundColor: '#2d2d2d',
+      color: '#ffa500',
+      border: '2px solid #ffa500',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontWeight: '700',
+      fontSize: '14px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    }
+  };
+
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '20px', color: '#1a1a1a' }}>Manage Locations</h2>
+    <div className="component-content">
+      <div style={styles.pageTitle}>Manage Locations</div>
 
       {message && (
-        <div style={{
-          padding: '15px',
-          marginBottom: '20px',
-          backgroundColor: message.includes('❌') ? '#ffebee' : '#e8f5e9',
-          color: message.includes('❌') ? '#c62828' : '#2e7d32',
-          borderRadius: '5px',
-          border: `1px solid ${message.includes('❌') ? '#ef5350' : '#66bb6a'}`
-        }}>
+        <div style={styles.message}>
           {message}
         </div>
       )}
 
-      {!showAddForm && (
-        <button
-          onClick={() => setShowAddForm(true)}
-          style={{
-            padding: '15px 30px',
-            backgroundColor: '#0066cc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '5px',
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: 'bold',
-            marginBottom: '30px'
-          }}
-        >
-          + Add New Location
-        </button>
-      )}
-
+      {/* Add Form */}
       {showAddForm && (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#f5f5f5',
-          borderRadius: '5px',
-          marginBottom: '30px',
-          border: '2px solid #0066cc'
-        }}>
-          <h3 style={{ marginTop: 0, marginBottom: '15px', color: '#1a1a1a' }}>Add New Location</h3>
+        <div style={styles.editForm}>
+          <h3 style={styles.formTitle}>Add New Location</h3>
           
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
-              Location Name
-            </label>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Location Name</label>
             <input
               type="text"
               value={newLocation.name}
               onChange={(e) => setNewLocation({ ...newLocation, name: e.target.value })}
-              placeholder="e.g., Main Stage, Backstage Area"
-              style={{
-                width: '100%',
-                padding: '10px',
-                fontSize: '16px',
-                borderRadius: '5px',
-                border: '1px solid #ddd',
-                boxSizing: 'border-box',
-                color: '#333',
-                backgroundColor: '#fff'
-              }}
+              placeholder="e.g., Main Stage"
+              style={styles.input}
             />
           </div>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', color: '#333' }}>
-              Color
-            </label>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Color</label>
+            <div style={styles.colorGrid}>
               {colorPresets.map(preset => (
                 <button
                   key={preset.value}
                   onClick={() => setNewLocation({ ...newLocation, color: preset.value })}
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    backgroundColor: preset.value,
-                    border: newLocation.color === preset.value ? '3px solid #000' : '2px solid #ddd',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    position: 'relative'
-                  }}
+                  style={styles.colorButton(preset.value, newLocation.color === preset.value)}
                   title={preset.name}
                 >
                   {newLocation.color === preset.value && (
-                    <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '24px' }}>✓</span>
+                    <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: '#fff' }}>✓</span>
                   )}
                 </button>
               ))}
             </div>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <label style={{ fontWeight: 'normal', color: '#333' }}>Custom:</label>
-              <input
-                type="color"
-                value={newLocation.color}
-                onChange={(e) => setNewLocation({ ...newLocation, color: e.target.value })}
-                style={{ width: '60px', height: '40px', cursor: 'pointer' }}
-              />
-              <span style={{ padding: '5px 10px', backgroundColor: newLocation.color, color: '#fff', borderRadius: '3px' }}>
-                {newLocation.color}
-              </span>
-            </div>
           </div>
 
-          <div style={{ display: 'flex', gap: '10px' }}>
-            <button
-              onClick={handleAddLocation}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#2ecc71',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Save Location
+          <div style={styles.buttonRow}>
+            <button onClick={handleAddLocation} style={styles.saveButton}>
+              Save
             </button>
-            <button
-              onClick={() => {
-                setShowAddForm(false);
-                setNewLocation({ name: '', color: '#0066cc' });
-              }}
-              style={{
-                padding: '10px 20px',
-                backgroundColor: '#95a5a6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
+            <button onClick={cancelEdit} style={styles.cancelButton}>
               Cancel
             </button>
           </div>
         </div>
       )}
 
-      <div>
-        <h3 style={{ marginBottom: '15px', color: '#1a1a1a' }}>Current Locations ({locations.length})</h3>
-        {locations.map(location => (
-          <div
-            key={location.id}
-            style={{
-              padding: '15px',
-              marginBottom: '10px',
-              backgroundColor: '#fff',
-              borderRadius: '5px',
-              border: '1px solid #ddd'
-            }}
-          >
-            {editingId === location.id ? (
-              <div>
-                <div style={{ marginBottom: '10px' }}>
-                  <input
-                    type="text"
-                    value={editForm.name}
-                    onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      fontSize: '16px',
-                      borderRadius: '5px',
-                      border: '1px solid #ddd',
-                      boxSizing: 'border-box',
-                      color: '#333',
-                      backgroundColor: '#fff'
-                    }}
-                  />
-                </div>
+      {/* Location List */}
+      {locations.map(location => (
+        editingId === location.id ? (
+          <div key={location.id} style={styles.editForm}>
+            <h3 style={styles.formTitle}>Edit Location</h3>
+            
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Location Name</label>
+              <input
+                type="text"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                style={styles.input}
+              />
+            </div>
 
-                <div style={{ marginBottom: '10px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', fontWeight: 'bold', color: '#333' }}>
-                    Color
-                  </label>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '10px' }}>
-                    {colorPresets.map(preset => (
-                      <button
-                        key={preset.value}
-                        onClick={() => setEditForm({ ...editForm, color: preset.value })}
-                        style={{
-                          width: '40px',
-                          height: '40px',
-                          backgroundColor: preset.value,
-                          border: editForm.color === preset.value ? '3px solid #000' : '2px solid #ddd',
-                          borderRadius: '5px',
-                          cursor: 'pointer',
-                          position: 'relative'
-                        }}
-                        title={preset.name}
-                      >
-                        {editForm.color === preset.value && (
-                          <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px' }}>✓</span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-                    <label style={{ fontSize: '14px', color: '#333' }}>Custom:</label>
-                    <input
-                      type="color"
-                      value={editForm.color}
-                      onChange={(e) => setEditForm({ ...editForm, color: e.target.value })}
-                      style={{ width: '50px', height: '35px', cursor: 'pointer' }}
-                    />
-                    <span style={{ fontSize: '14px', padding: '3px 8px', backgroundColor: editForm.color, color: '#fff', borderRadius: '3px' }}>
-                      {editForm.color}
-                    </span>
-                  </div>
-                </div>
+            <div style={styles.formGroup}>
+              <label style={styles.label}>Color</label>
+              <div style={styles.colorGrid}>
+                {colorPresets.map(preset => (
+                  <button
+                    key={preset.value}
+                    onClick={() => setEditForm({ ...editForm, color: preset.value })}
+                    style={styles.colorButton(preset.value, editForm.color === preset.value)}
+                    title={preset.name}
+                  >
+                    {editForm.color === preset.value && (
+                      <span style={{ position: 'absolute', top: '50%', left: '50%', transform: 'translate(-50%, -50%)', fontSize: '20px', color: '#fff' }}>✓</span>
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => saveEdit(location.id)}
-                    style={{
-                      padding: '8px 15px',
-                      backgroundColor: '#2ecc71',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={cancelEdit}
-                    style={{
-                      padding: '8px 15px',
-                      backgroundColor: '#95a5a6',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Cancel
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flex: 1 }}>
-                  <div
-                    style={{
-                      width: '50px',
-                      height: '50px',
-                      backgroundColor: location.color,
-                      borderRadius: '5px',
-                      border: '2px solid #ddd'
-                    }}
-                  />
-                  <div>
-                    <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#1a1a1a' }}>
-                      {location.name}
-                    </div>
-                    <div style={{ fontSize: '14px', color: '#666' }}>
-                      Color: {location.color}
-                    </div>
-                  </div>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => startEdit(location)}
-                    style={{
-                      padding: '8px 15px',
-                      backgroundColor: '#0066cc',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => deleteLocation(location.id)}
-                    style={{
-                      padding: '8px 15px',
-                      backgroundColor: '#e74c3c',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Delete
-                  </button>
-                </div>
-              </div>
-            )}
+            <div style={styles.buttonRow}>
+              <button onClick={() => saveEdit(location.id)} style={styles.saveButton}>
+                Save
+              </button>
+              <button onClick={cancelEdit} style={styles.cancelButton}>
+                Cancel
+              </button>
+            </div>
           </div>
-        ))}
-      </div>
+        ) : (
+          <div key={location.id} style={styles.locationCard(location.color)}>
+            <div style={styles.locationName}>
+              {location.name}
+            </div>
+            <div style={styles.locationActions}>
+              <button onClick={() => startEdit(location)} style={styles.iconBtn}>
+                ✏️
+              </button>
+              <button onClick={() => deleteLocation(location.id)} style={styles.iconBtn}>
+                🗑️
+              </button>
+            </div>
+          </div>
+        )
+      ))}
+
+      {/* Add Button */}
+      {!showAddForm && !editingId && (
+        <button onClick={() => setShowAddForm(true)} style={styles.addBtn}>
+          + Add New Location
+        </button>
+      )}
     </div>
   );
 }

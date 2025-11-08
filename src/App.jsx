@@ -5,23 +5,24 @@ import GearList from './components/GearList';
 import Scanner from './components/Scanner';
 import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
-import { getFirestoreDb } from './firestoreDb';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import { DatabaseProvider, useDatabase } from './contexts/DatabaseContext';
+import './App.css';
 
 const GlobalStyles = () => (
   <style>{`
     body {
       font-size: 16px;
       line-height: 1.5;
-      color: #333;
+      color: #e0e0e0;
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
       overflow-x: hidden;
+      background-color: #1a1a1a;
     }
     
     * {
@@ -31,11 +32,11 @@ const GlobalStyles = () => (
     input, select, textarea {
       font-size: 16px !important;
       min-height: 44px;
-      color: #333 !important;
+      color: #e0e0e0 !important;
     }
     
     label {
-      color: #333 !important;
+      color: #ffa500 !important;
       font-size: 14px;
       font-weight: 600;
     }
@@ -52,20 +53,7 @@ const GlobalStyles = () => (
   `}</style>
 );
 
-const PageContainer = ({ children, isHome = false }) => ( 
-  <div style={{ 
-    width: '100%',
-    maxWidth: '600px',  // Same for both now
-    margin: '0 auto', 
-    padding: isHome ? '10px' : '20px',
-    boxSizing: 'border-box'
-  }}> 
-    {children} 
-  </div>
-);
-
 function AppContent() {
-  // ALL HOOKS AT TOP
   const { currentUser, logout } = useAuth();
   const { currentFestival, loading: festivalLoading } = useFestival();
   const db = useDatabase();
@@ -77,6 +65,7 @@ function AppContent() {
   const [locationColors, setLocationColors] = useState({});
   const [message, setMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0 });
 
   const loadLocations = useCallback(async () => {
     if (!db) return;
@@ -94,912 +83,729 @@ function AppContent() {
     }
   }, [db]);
 
-  const handleScan = useCallback(async (qrData) => {
-    console.log('handleScan called with:', qrData);
-    
-    if (qrData && qrData.startsWith('GEAR:')) {
-      const gearId = qrData.replace('GEAR:', '').trim();
-      console.log('Parsed gear ID:', gearId);
-
-      if (!gearId) {
-        alert('Invalid QR code format');
-        return;
-      }
-      
-      try {
-        const gear = await db.gear.get(gearId);
-        
-        if (gear) {
-          setScannedGear(gear);
-          setActiveTab('scan');
-        } else {
-          alert(`Gear item ID ${gearId} not found in database`);
-        }
-      } catch (error) {
-        console.error('Error fetching gear:', error);
-        alert('Error retrieving gear item: ' + error.message);
-      }
-    } else {
-      alert('QR code does not match expected format (GEAR:ID)');
+  const loadStatusCounts = useCallback(async () => {
+    if (!db) return;
+    try {
+      const allGear = await db.gear.toArray();
+      const active = allGear.filter(g => !g.in_transit && !g.checked_out && g.current_location_id).length;
+      const transit = allGear.filter(g => g.in_transit).length;
+      const checkedOut = allGear.filter(g => g.checked_out).length;
+      setStatusCounts({ active, transit, checkedOut });
+    } catch (error) {
+      console.error('Error loading status counts:', error);
     }
   }, [db]);
 
-  const handleLocationSelect = useCallback(async (locationId) => {
+  useEffect(() => {
+    loadLocations();
+    loadStatusCounts();
+  }, [loadLocations, loadStatusCounts, refreshTrigger]);
+
+  const handleScan = useCallback(async (qrData) => {
+    if (qrData && qrData.startsWith('GEAR:')) {
+      const gearId = qrData.replace('GEAR:', '');
+      try {
+        const gear = await db.gear.get(gearId);
+        if (gear) {
+          setScannedGear(gear);
+          setActiveTab('scanned');
+        }
+      } catch (error) {
+        console.error('Error fetching gear:', error);
+      }
+    }
+  }, [db]);
+
+  const handleLocationSelect = async (locationId) => {
     if (!scannedGear) return;
 
     try {
-      if (scannedGear.checked_out) {
-        await db.gear.update(scannedGear.id, {
-          current_location_id: locationId,
-          checked_out: false,
-          in_transit: false,
-          transit_origin_id: null,  // Clear transit data
-          transit_destination_id: null,
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: scannedGear.id,
-          location_id: locationId,
-          timestamp: new Date(),
-          synced: false,
-          user_id: currentUser.uid,
-          user_email: currentUser.email,
-          action: 'check_in_from_band'
-        });
-        
-        setMessage('✓ Item checked back in successfully!');
-      } else if (scannedGear.in_transit) {
-        await db.gear.update(scannedGear.id, {
-          current_location_id: locationId,
-          in_transit: false,
-          transit_destination_id: locationId,  // Capture destination
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: scannedGear.id,
-          location_id: locationId,
-          timestamp: new Date(),
-          synced: false,
-          user_id: currentUser.uid,
-          user_email: currentUser.email,
-          action: 'check_in_from_transit'
-        });
-        
-        setMessage('✓ Item checked in successfully!');
-      } else {
-        await db.gear.update(scannedGear.id, {
-          current_location_id: locationId,
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: scannedGear.id,
-          location_id: locationId,
-          timestamp: new Date(),
-          synced: false,
-          user_id: currentUser.uid,
-          user_email: currentUser.email,
-          action: 'location_change'
-        });
-        
-        setMessage('✓ Location updated successfully!');
-      }
-      
+      const updateData = {
+        current_location_id: locationId,
+        in_transit: false,
+        checked_out: false,
+        lastUpdated: new Date()
+      };
+
+      await db.gear.update(scannedGear.id, updateData);
+
+      await db.scan_history.add({
+        gear_id: scannedGear.id,
+        location_id: locationId,
+        scanned_at: new Date(),
+        action: 'check_in',
+        user_email: currentUser?.email || 'unknown'
+      });
+
+      setMessage('Item checked in successfully');
       setTimeout(() => setMessage(''), 3000);
       setScannedGear(null);
-      setRefreshTrigger(prev => prev + 1);
       setActiveTab('home');
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
-      console.error('Error updating location:', error);
-      setMessage('❌ Error updating location');
+      console.error('Error updating gear:', error);
+      setMessage('Error checking in item');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [scannedGear, db]);
+  };
 
-  const handleCheckOut = useCallback(async (type) => {
+  const handleCheckOut = async (type) => {
     if (!scannedGear) return;
 
     try {
-      if (type === 'transit') {
-        await db.gear.update(scannedGear.id, {
-          in_transit: true,
-          transit_origin_id: scannedGear.current_location_id,
-          transit_destination_id: null,  // Will be set when checking in
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: scannedGear.id,
-          location_id: scannedGear.current_location_id,
-          timestamp: new Date(),
-          synced: false,
-          user_id: currentUser.uid,
-          user_email: currentUser.email,
-          action: 'check_out_transit'
-        });
+      const updateData = {
+        in_transit: type === 'transit',
+        checked_out: type === 'band',
+        lastUpdated: new Date()
+      };
 
-        setMessage('✓ Item checked out for transit!');
-      } else if (type === 'band') {
-        await db.gear.update(scannedGear.id, {
-          checked_out: true,
-          lastUpdated: new Date()
-        });
-
-        await db.scans.add({
-          gear_id: scannedGear.id,
-          location_id: scannedGear.current_location_id,
-          timestamp: new Date(),
-          synced: false,
-          user_id: currentUser.uid,
-          user_email: currentUser.email,
-          action: 'check_out_band'
-        });
-
-        setMessage('✓ Item checked out to band!');
+      if (type === 'band') {
+        updateData.current_location_id = null;
       }
-      
+
+      await db.gear.update(scannedGear.id, updateData);
+
+      await db.scan_history.add({
+        gear_id: scannedGear.id,
+        location_id: scannedGear.current_location_id,
+        scanned_at: new Date(),
+        action: type === 'transit' ? 'check_out_transit' : 'check_out_band',
+        user_email: currentUser?.email || 'unknown'
+      });
+
+      setMessage(type === 'transit' ? 'Item in transit' : 'Item checked out to band');
       setTimeout(() => setMessage(''), 3000);
       setScannedGear(null);
-      setRefreshTrigger(prev => prev + 1);
       setActiveTab('home');
+      setRefreshTrigger(prev => prev + 1);
     } catch (error) {
       console.error('Error checking out:', error);
-      setMessage('❌ Error checking out item');
+      setMessage('Error checking out item');
       setTimeout(() => setMessage(''), 3000);
     }
-  }, [scannedGear, db]);
+  };
 
-  const handleLocationsUpdate = useCallback(() => {
+  const handleLocationsUpdate = () => {
     loadLocations();
     setRefreshTrigger(prev => prev + 1);
-  }, [loadLocations]);
+  };
 
-  useEffect(() => {
-    if (currentUser && currentFestival && db) {
-      loadLocations();
-    }
-  }, [currentUser, currentFestival, db, loadLocations]);
-
-  // CONDITIONAL RETURNS AFTER ALL HOOKS
   if (!currentUser) {
-  return showSignup ? 
-    <Signup onSwitchToLogin={() => setShowSignup(false)} /> : 
-    <Login onSwitchToSignup={() => setShowSignup(true)} />;
-}
+    return showSignup ? <Signup onToggle={() => setShowSignup(false)} /> : <Login onToggle={() => setShowSignup(true)} />;
+  }
 
-if (festivalLoading) {
+  if (festivalLoading) {
+    return (
+      <div style={{ padding: '20px', textAlign: 'center', color: '#888' }}>
+        Loading festival data...
+      </div>
+    );
+  }
+
+  if (!currentFestival) {
+    return <FestivalSetup />;
+  }
+
+  const styles = {
+    container: {
+      width: '100%',
+      maxWidth: '600px',
+      margin: '0 auto',
+      padding: '16px',
+      backgroundColor: '#1a1a1a',
+      minHeight: '100vh',
+      display: 'flex',
+      flexDirection: 'column'
+    },
+    header: {
+      background: '#2d2d2d',
+      padding: '16px',
+      borderRadius: '8px',
+      marginBottom: '16px',
+      borderLeft: '4px solid #ffa500',
+      textAlign: 'center'
+    },
+    headerTitle: {
+      fontSize: '16px',
+      color: '#ffa500',
+      marginBottom: '4px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1.2px',
+      margin: 0
+    },
+    headerTagline: {
+      fontSize: '11px',
+      color: '#888',
+      letterSpacing: '0.5px',
+      margin: 0
+    },
+    infoBar: {
+      background: '#2d2d2d',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      marginBottom: '16px',
+      borderLeft: '4px solid #ffa500',
+      display: 'flex',
+      justifyContent: 'space-around',
+      alignItems: 'center',
+      gap: '8px'
+    },
+    infoBarItem: {
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '4px'
+    },
+    infoBarLabel: {
+      color: '#888',
+      fontSize: '10px',
+      fontWeight: '600',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    infoBarCount: {
+      fontSize: '16px',
+      fontWeight: '700'
+    },
+    homeContent: {
+      padding: '0'
+    },
+    homeButtons: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
+      gap: '10px',
+      gridTemplateRows: 'repeat(3, 150px)'
+    },
+    homeButton: {
+      background: '#2d2d2d',
+      border: '2px solid #664400',
+      borderRadius: '8px',
+      cursor: 'pointer',
+      textAlign: 'center',
+      transition: 'all 0.2s',
+      position: 'relative',
+      boxShadow: '0 3px 0 #664400, 0 5px 10px rgba(0,0,0,0.4)',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '10px'
+    },
+    homeButtonIcon: {
+      fontSize: '36px',
+      marginBottom: '8px',
+      display: 'block'
+    },
+    homeButtonText: {
+      color: '#ffa500',
+      fontSize: '15px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      marginBottom: '4px'
+    },
+    homeButtonDesc: {
+      color: '#666',
+      fontSize: '11px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    logoutButton: {
+      width: '100%',
+      padding: '12px',
+      backgroundColor: '#2d2d2d',
+      color: '#ff6b6b',
+      border: '2px solid #ff6b6b',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '700',
+      marginTop: '20px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
-      <div style={{ color: 'white', fontSize: '18px' }}>Loading...</div>
-    </div>
-  );
-}
-
-if (!currentFestival) {
-  return <FestivalSetup />;
-}
-
-  return (
-    <div style={{ minHeight: '100vh', background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' }}>
+    <div>
       <GlobalStyles />
-      
-      {/* Header */}
-      <div style={{ 
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        padding: '20px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        boxShadow: '0 2px 20px rgba(0,0,0,0.1)',
-        position: 'sticky',
-        top: 0,
-        zIndex: 100
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+      <div style={styles.container}>
+        {/* Global Header */}
+        <div style={styles.header}>
+          <h1 style={styles.headerTitle}>Festival Gear Tracker</h1>
+          <p style={styles.headerTagline}>Organising Chaos Like a Pro</p>
+        </div>
+
+        {/* Status Info Bar */}
+        <div style={styles.infoBar}>
+          <div style={styles.infoBarItem}>
+            <span style={styles.infoBarLabel}>Active</span>
+            <span style={{ ...styles.infoBarCount, color: '#4caf50' }}>{statusCounts.active}</span>
+          </div>
+          <div style={styles.infoBarItem}>
+            <span style={styles.infoBarLabel}>In Transit</span>
+            <span style={{ ...styles.infoBarCount, color: '#ff6b6b' }}>{statusCounts.transit}</span>
+          </div>
+          <div style={styles.infoBarItem}>
+            <span style={styles.infoBarLabel}>Checked Out</span>
+            <span style={{ ...styles.infoBarCount, color: '#888' }}>{statusCounts.checkedOut}</span>
+          </div>
+        </div>
+
+        {message && (
           <div style={{
-            width: '40px',
-            height: '40px',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            borderRadius: '10px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: '24px'
-          }}>
-            🎪
-          </div>
-          <div>
-            <h1 style={{ margin: 0, fontSize: '22px', color: '#1a1a1a', fontWeight: '700' }}>
-              Festival Gear Tracker
-            </h1>
-            <div style={{ fontSize: '11px', color: '#666', fontWeight: '500', marginTop: '2px' }}>
-              Organise Chaos Like a Pro
-            </div>
-          </div>
-	  <button
-          onClick={() => { logout(); window.location.reload(); }}
-          style={{
-            padding: '10px 16px',
-            background: '#f8f9fa',
-            color: '#495057',
-            border: '1px solid #dee2e6',
-            borderRadius: '8px',
-            cursor: 'pointer',
+            padding: '15px',
+            marginBottom: '16px',
+            backgroundColor: message.includes('Error') ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)',
+            color: message.includes('Error') ? '#ff6b6b' : '#4caf50',
+            borderRadius: '6px',
+            border: `2px solid ${message.includes('Error') ? '#f44336' : '#4caf50'}`,
             fontSize: '14px',
             fontWeight: '600'
-          }}
-        >
-          Logout
-        </button>
-        </div>
-        {activeTab !== 'home' && (
-          <button
-            onClick={() => setActiveTab('home')}
-            style={{
-              padding: '10px 16px',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '600',
-              boxShadow: '0 2px 8px rgba(102, 126, 234, 0.3)'
-            }}
-          >
-            ← Menu
-          </button>
+          }}>
+            {message}
+          </div>
         )}
-      </div>
 
-      {message && (
-        <div style={{
-          padding: '16px',
-          margin: '15px',
-          background: message.includes('❌') ? 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)' : 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-          color: 'white',
-          borderRadius: '12px',
-          textAlign: 'center',
-          fontSize: '14px',
-          fontWeight: '600',
-          boxShadow: '0 4px 15px rgba(0,0,0,0.15)',
-          maxWidth: '600px',
-          margin: '15px auto',
-          boxSizing: 'border-box'
-        }}>
-          {message}
-        </div>
-      )}
-
-      {/* Main Menu */}
-      {activeTab === 'home' && (
-        <PageContainer isHome={true}>
-          <div style={{ 
-            textAlign: 'center', 
-            marginBottom: '20px',
-            padding: '16px',
-            background: 'rgba(255, 255, 255, 0.15)',
-            backdropFilter: 'blur(10px)',
-            borderRadius: '16px',
-            color: 'white'
-          }}>
-            <h2 style={{ fontSize: '20px', margin: '0 0 4px 0', fontWeight: '700' }}>
-              {currentFestival.name}
-            </h2>
-            <p style={{ margin: 0, fontSize: '13px', opacity: 0.85 }}>
-              Select an action to get started
-            </p>
-          </div>
-          
-          <div style={{ 
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '10px'
-            }}>
-            <button
-              onClick={() => setActiveTab('scanner')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(81, 207, 102, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>📷</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>SCAN QR CODE</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    Check in or check out gear items
-                  </div>
-                </div>
+        {/* Home Page */}
+        {activeTab === 'home' && (
+          <div style={styles.homeContent}>
+            <div style={styles.homeButtons}>
+              <div style={styles.homeButton} onClick={() => setActiveTab('scanner')}>
+                <span style={styles.homeButtonIcon}>📷</span>
+                <div style={styles.homeButtonText}>Scan QR</div>
+                <div style={styles.homeButtonDesc}>Check In/Out</div>
               </div>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('chaos')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(204, 93, 232, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>➕</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>REGISTER GEAR</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    Add new items to inventory
-                  </div>
-                </div>
+              <div style={styles.homeButton} onClick={() => setActiveTab('chaos')}>
+                <span style={styles.homeButtonIcon}>➕</span>
+                <div style={styles.homeButtonText}>Register</div>
+                <div style={styles.homeButtonDesc}>Add Gear</div>
               </div>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('gear')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(77, 171, 247, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>📦</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>GEAR LIST</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    View and manage all inventory
-                  </div>
-                </div>
+              <div style={styles.homeButton} onClick={() => setActiveTab('gear')}>
+                <span style={styles.homeButtonIcon}>📋</span>
+                <div style={styles.homeButtonText}>Gear List</div>
+                <div style={styles.homeButtonDesc}>View All</div>
               </div>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('schedule')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #ffd43b 0%, #fab005 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(255, 212, 59, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>📅</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>SCHEDULE</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    View band performances
-                  </div>
-                </div>
+              <div style={styles.homeButton} onClick={() => setActiveTab('schedule')}>
+                <span style={styles.homeButtonIcon}>📅</span>
+                <div style={styles.homeButtonText}>Schedule</div>
+                <div style={styles.homeButtonDesc}>Performances</div>
               </div>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('prepared')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(255, 169, 77, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>📄</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>BULK UPLOAD</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    Import multiple items via CSV
-                  </div>
-                </div>
+              <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
+                <span style={styles.homeButtonIcon}>📦</span>
+                <div style={styles.homeButtonText}>Bulk Upload</div>
+                <div style={styles.homeButtonDesc}>CSV Import</div>
               </div>
-            </button>
 
-            <button
-              onClick={() => setActiveTab('locations')}
-              style={{
-                padding: '16px',
-                background: 'linear-gradient(135deg, #a3a3a3 0%, #737373 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '16px',
-                cursor: 'pointer',
-                fontSize: '18px',
-                fontWeight: 'bold',
-                boxShadow: '0 8px 20px rgba(163, 163, 163, 0.3)',
-                textAlign: 'left'
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ fontSize: '32px' }}>📍</div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '20px', marginBottom: '4px' }}>LOCATIONS</div>
-                  <div style={{ fontSize: '13px', fontWeight: 'normal', opacity: 0.9 }}>
-                    Manage stages and areas
-                  </div>
-                </div>
+              <div style={styles.homeButton} onClick={() => setActiveTab('locations')}>
+                <span style={styles.homeButtonIcon}>📍</span>
+                <div style={styles.homeButtonText}>Locations</div>
+                <div style={styles.homeButtonDesc}>Manage</div>
               </div>
+            </div>
+
+            <button onClick={logout} style={styles.logoutButton}>
+              Logout
             </button>
           </div>
-        </PageContainer>
-      )}
+        )}
 
-      {/* Content Pages */}
-      {activeTab === 'chaos' && (
-        <PageContainer>
-          <RegisterGear locationColors={locationColors} />
-        </PageContainer>
-      )}
-      
-      {activeTab === 'prepared' && (
-        <PageContainer>
-          <PreparedGate locationColors={locationColors} />
-        </PageContainer>
-      )}
-      
-      {activeTab === 'schedule' && (
-        <PageContainer>
-          <Schedule key={refreshTrigger} locationColors={locationColors} />
-        </PageContainer>
-      )}
-      
-      {activeTab === 'gear' && (
-        <PageContainer>
-          <GearList 
-            key={refreshTrigger} 
-            locationColors={locationColors}
-            currentUser={currentUser}
-          />
-        </PageContainer>
-      )}
-      
-      {activeTab === 'locations' && (
-        <PageContainer>
-          <LocationManager onUpdate={handleLocationsUpdate} />
-        </PageContainer>
-      )}
-      
-      {activeTab === 'scanner' && (
-        <PageContainer>
-          <div style={{
-            background: 'white',
-            borderRadius: '20px',
-            padding: '24px',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
-          }}>
-            <h2 style={{ marginTop: 0, textAlign: 'center', fontSize: '22px', color: '#1a1a1a', fontWeight: '700' }}>
-              Scan QR Code
-            </h2>
-            <p style={{ textAlign: 'center', color: '#666', marginBottom: '24px', fontSize: '14px' }}>
-              Point your camera at a gear QR code
-            </p>
+        {/* Content Pages */}
+        {activeTab === 'chaos' && (
+          <div>
+            <RegisterGear locationColors={locationColors} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'prepared' && (
+          <div>
+            <PreparedGate locationColors={locationColors} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'schedule' && (
+          <div>
+            <Schedule key={refreshTrigger} locationColors={locationColors} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'gear' && (
+          <div>
+            <GearList key={refreshTrigger} locationColors={locationColors} currentUser={currentUser} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'locations' && (
+          <div>
+            <LocationManager onUpdate={handleLocationsUpdate} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'scanner' && (
+          <div>
             <Scanner onScan={handleScan} />
             <button
               onClick={() => setActiveTab('home')}
               style={{
                 marginTop: '20px',
                 padding: '16px',
-                minHeight: '52px',
-                background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
                 cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '600',
                 width: '100%',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </div>
+        )}
+
+        {activeTab === 'scanned' && scannedGear && (
+          <div>
+            <div style={{
+              padding: '20px',
+              backgroundColor: '#2d2d2d',
+              borderRadius: '6px',
+              marginBottom: '20px',
+              border: '1px solid #3a3a3a'
+            }}>
+              <h3 style={{
+                fontSize: '18px',
+                color: '#ffa500',
+                fontWeight: '700',
+                marginBottom: '12px',
+                textAlign: 'center',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                Scanned Item
+              </h3>
+              <div style={{ fontSize: '16px', color: '#e0e0e0', marginBottom: '8px' }}>
+                <strong>Band:</strong> {scannedGear.band_id}
+              </div>
+              <div style={{ fontSize: '16px', color: '#e0e0e0', marginBottom: '8px' }}>
+                <strong>Item:</strong> {scannedGear.description}
+              </div>
+              <div style={{ fontSize: '14px', color: '#888' }}>
+                ID: #{String(scannedGear.display_id || '0000').padStart(4, '0')}
+              </div>
+            </div>
+
+            {scannedGear.checked_out ? (
+              <div>
+                <h3 style={{
+                  fontSize: '16px',
+                  color: '#ffa500',
+                  fontWeight: '700',
+                  marginBottom: '16px',
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  Check IN to Location
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#888',
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  Item is checked out. Select destination:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {locations.map(loc => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleLocationSelect(loc.id)}
+                      style={{
+                        padding: '16px',
+                        background: loc.color,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px'
+                      }}
+                    >
+                      {loc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : scannedGear.in_transit ? (
+              <div>
+                <h3 style={{
+                  fontSize: '16px',
+                  color: '#ffa500',
+                  fontWeight: '700',
+                  marginBottom: '16px',
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  Check IN to Location
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#888',
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  Item is in transit. Select destination:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {locations.map(loc => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleLocationSelect(loc.id)}
+                      style={{
+                        padding: '16px',
+                        background: loc.color,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px'
+                      }}
+                    >
+                      {loc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : scannedGear.current_location_id ? (
+              <div>
+                <h3 style={{
+                  fontSize: '16px',
+                  color: '#ffa500',
+                  fontWeight: '700',
+                  marginBottom: '16px',
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  Check Out Options
+                </h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  <button
+                    onClick={() => handleCheckOut('transit')}
+                    style={{
+                      padding: '18px',
+                      background: '#ff6b6b',
+                      color: '#1a1a1a',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    🚚 In Transit (Moving)
+                  </button>
+                  <button
+                    onClick={() => handleCheckOut('band')}
+                    style={{
+                      padding: '18px',
+                      background: '#888',
+                      color: '#1a1a1a',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    🎸 Check Out to Band
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <h3 style={{
+                  fontSize: '16px',
+                  color: '#ffa500',
+                  fontWeight: '700',
+                  marginBottom: '16px',
+                  textAlign: 'center',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  Select Initial Location
+                </h3>
+                <p style={{
+                  fontSize: '14px',
+                  color: '#888',
+                  marginBottom: '16px',
+                  textAlign: 'center'
+                }}>
+                  This item hasn't been checked in yet. Select a location:
+                </p>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {locations.map(loc => (
+                    <button
+                      key={loc.id}
+                      onClick={() => handleLocationSelect(loc.id)}
+                      style={{
+                        padding: '16px',
+                        background: loc.color,
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontSize: '16px',
+                        fontWeight: '700',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px'
+                      }}
+                    >
+                      {loc.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setScannedGear(null);
+                setActiveTab('home');
+              }}
+              style={{
+                marginTop: '20px',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                width: '100%',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
               }}
             >
               Cancel
             </button>
           </div>
-        </PageContainer>
-      )}
-
-      {activeTab === 'scan' && scannedGear && (
-  <PageContainer>
-    <div style={{
-      background: 'white',
-      borderRadius: '20px',
-      padding: '24px',
-      boxShadow: '0 10px 40px rgba(0,0,0,0.15)'
-    }}>
-      <h2 style={{ 
-        marginTop: 0, 
-        marginBottom: '20px',
-        fontSize: '24px', 
-        color: '#1a1a1a', 
-        fontWeight: '700',
-        textAlign: 'center'
-      }}>
-        Scanned Item
-      </h2>
-      
-      {/* Item Details Card */}
-      <div style={{
-        padding: '24px',
-        background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-        borderRadius: '16px',
-        marginBottom: '24px',
-        border: '2px solid #dee2e6'
-      }}>
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px', fontWeight: '600' }}>
-            Band
-          </div>
-          <div style={{ fontSize: '20px', color: '#1a1a1a', fontWeight: '700' }}>
-            {scannedGear.band_id}
-          </div>
-        </div>
-        
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '4px', fontWeight: '600' }}>
-            Description
-          </div>
-          <div style={{ fontSize: '18px', color: '#1a1a1a', fontWeight: '600' }}>
-            {scannedGear.description}
-          </div>
-        </div>
-        
-        <div>
-          <div style={{ fontSize: '13px', color: '#6c757d', marginBottom: '8px', fontWeight: '600' }}>
-            Status
-          </div>
-          <div>
-            {scannedGear.checked_out ? (
-              <div style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                color: 'white',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(134,142,150,0.3)'
-              }}>
-                <span style={{ fontSize: '20px' }}>🎸</span>
-                <span>Checked Out to Band</span>
-              </div>
-            ) : scannedGear.in_transit ? (
-              <div style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                color: 'white',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(255,169,77,0.3)'
-              }}>
-                <span style={{ fontSize: '20px' }}>🚚</span>
-                <span>In Transit</span>
-              </div>
-            ) : scannedGear.current_location_id ? (
-              <div style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                background: `linear-gradient(135deg, ${locationColors[scannedGear.current_location_id] || '#51cf66'} 0%, ${locationColors[scannedGear.current_location_id] || '#37b24d'}dd 100%)`,
-                color: 'white',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                boxShadow: `0 2px 8px ${locationColors[scannedGear.current_location_id] || '#51cf66'}40`
-              }}>
-                <span style={{ fontSize: '20px' }}>📍</span>
-                <span>At {locations.find(l => l.id === scannedGear.current_location_id)?.name || 'Unknown'}</span>
-              </div>
-            ) : (
-              <div style={{ 
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '10px 18px',
-                background: '#f8f9fa',
-                color: '#6c757d',
-                borderRadius: '12px',
-                fontSize: '15px',
-                fontWeight: '600',
-                border: '2px dashed #dee2e6'
-              }}>
-                <span style={{ fontSize: '20px' }}>❓</span>
-                <span>Not checked in yet</span>
-              </div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
-
-      {/* Action Section */}
-      {scannedGear.checked_out ? (
-        <div>
-          <h3 style={{ 
-            fontSize: '18px', 
-            color: '#1a1a1a', 
-            fontWeight: '700', 
-            marginBottom: '12px',
-            textAlign: 'center'
-          }}>
-            Check Back In
-          </h3>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#6c757d', 
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            Select location to check this item back in:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {locations.map(loc => (
-              <button
-                key={loc.id}
-                onClick={() => handleLocationSelect(loc.id)}
-                style={{
-                  padding: '16px',
-                  minHeight: '56px',
-                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  boxShadow: `0 4px 12px ${loc.color}40`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.1s ease'
-                }}
-                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>📍</span>
-                <span>{loc.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : scannedGear.in_transit ? (
-        <div>
-          <h3 style={{ 
-            fontSize: '18px', 
-            color: '#1a1a1a', 
-            fontWeight: '700', 
-            marginBottom: '12px',
-            textAlign: 'center'
-          }}>
-            Check IN to Location
-          </h3>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#6c757d', 
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            Item is currently in transit. Select destination:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {locations.map(loc => (
-              <button
-                key={loc.id}
-                onClick={() => handleLocationSelect(loc.id)}
-                style={{
-                  padding: '16px',
-                  minHeight: '56px',
-                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  boxShadow: `0 4px 12px ${loc.color}40`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.1s ease'
-                }}
-                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>📍</span>
-                <span>{loc.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : scannedGear.current_location_id ? (
-        <div>
-          <h3 style={{ 
-            fontSize: '18px', 
-            color: '#1a1a1a', 
-            fontWeight: '700', 
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            Check Out Options
-          </h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <button
-              onClick={() => handleCheckOut('transit')}
-              style={{
-                padding: '18px',
-                minHeight: '64px',
-                background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '600',
-                boxShadow: '0 4px 12px rgba(255,169,77,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <span style={{ fontSize: '24px' }}>🚚</span>
-              <span>Check OUT (Moving within festival)</span>
-            </button>
-            <button
-              onClick={() => handleCheckOut('band')}
-              style={{
-                padding: '18px',
-                minHeight: '64px',
-                background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '12px',
-                cursor: 'pointer',
-                fontSize: '16px',
-                fontWeight: '600',
-                boxShadow: '0 4px 12px rgba(134,142,150,0.3)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '12px',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              <span style={{ fontSize: '24px' }}>🎸</span>
-              <span>Check Out to Band (Off-site)</span>
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div>
-          <h3 style={{ 
-            fontSize: '18px', 
-            color: '#1a1a1a', 
-            fontWeight: '700', 
-            marginBottom: '12px',
-            textAlign: 'center'
-          }}>
-            Select Initial Location
-          </h3>
-          <p style={{ 
-            fontSize: '14px', 
-            color: '#6c757d', 
-            marginBottom: '16px',
-            textAlign: 'center'
-          }}>
-            This item hasn't been checked in yet. Select a location:
-          </p>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {locations.map(loc => (
-              <button
-                key={loc.id}
-                onClick={() => handleLocationSelect(loc.id)}
-                style={{
-                  padding: '16px',
-                  minHeight: '56px',
-                  background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  boxShadow: `0 4px 12px ${loc.color}40`,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '12px',
-                  transition: 'transform 0.1s ease'
-                }}
-                onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-                onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-                onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              >
-                <span style={{ fontSize: '24px' }}>📍</span>
-                <span>{loc.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <button
-        onClick={() => {
-          setScannedGear(null);
-          setActiveTab('home');
-        }}
-        style={{
-          marginTop: '20px',
-          padding: '16px',
-          minHeight: '52px',
-          background: '#f8f9fa',
-          color: '#495057',
-          border: '1px solid #dee2e6',
-          borderRadius: '12px',
-          cursor: 'pointer',
-          width: '100%',
-          fontSize: '16px',
-          fontWeight: '600',
-          transition: 'transform 0.1s ease'
-        }}
-        onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.98)'}
-        onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-        onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-      >
-        Cancel
-      </button>
-    </div>
-  </PageContainer>
-)}
     </div>
   );
 }

@@ -4,12 +4,10 @@ import { generateQRCode } from '../utils/qrCode';
 
 export default function RegisterGear() {
   const db = useDatabase();
-  const [items, setItems] = useState([{ description: '' }]);
   const [bandName, setBandName] = useState('');
-  const [performances, setPerformances] = useState([]);
+  const [items, setItems] = useState([{ description: '', initialLocation: '' }]);
   const [registeredItems, setRegisteredItems] = useState([]);
   const [message, setMessage] = useState('');
-  const [printLayout, setPrintLayout] = useState('sheet');
   const [locations, setLocations] = useState([]);
 
   useEffect(() => {
@@ -22,7 +20,7 @@ export default function RegisterGear() {
   };
 
   const handleAddItem = () => {
-    setItems([...items, { description: '' }]);
+    setItems([...items, { description: '', initialLocation: '' }]);
   };
 
   const handleRemoveItem = (index) => {
@@ -31,88 +29,62 @@ export default function RegisterGear() {
     }
   };
 
-  const handleItemChange = (index, value) => {
+  const handleItemChange = (index, field, value) => {
     const updated = [...items];
-    updated[index].description = value;
-    setItems(updated);
-  };
-
-  const handleAddPerformance = () => {
-    setPerformances([...performances, { location: '', date: '', time: '' }]);
-  };
-
-  const handleRemovePerformance = (index) => {
-    setPerformances(performances.filter((_, i) => i !== index));
-  };
-
-  const handlePerformanceChange = (index, field, value) => {
-    const updated = [...performances];
     updated[index][field] = value;
-    setPerformances(updated);
+    setItems(updated);
   };
 
   const handleRegister = async () => {
     if (!bandName.trim()) {
-      setMessage('❌ Band name is required');
+      setMessage('Band name is required');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
 
     const validItems = items.filter(item => item.description.trim());
     if (validItems.length === 0) {
-      setMessage('❌ At least one item description is required');
+      setMessage('At least one item description is required');
       setTimeout(() => setMessage(''), 3000);
       return;
     }
 
     try {
-  const registered = [];
-  
-  for (const item of validItems) {
-    const gearId = await db.gear.add({
-      band_id: bandName.trim(),
-      description: item.description.trim(),
-      qr_code: '',
-      current_location_id: null,
-      status: 'active',
-      created_at: new Date(),
-      in_transit: false,
-      checked_out: false,
-      lastUpdated: new Date()
-    });
-    
-    const qrCode = await generateQRCode(gearId);
-    await db.gear.update(gearId, { qr_code: qrCode });
-    
-    // Only fetch display_id from Firestore
-    const savedItem = await db.gear.get(gearId);
-    
-    registered.push({
-      id: gearId,
-      band: bandName.trim(),
-      description: item.description.trim(),
-      qrCode: qrCode,
-      display_id: savedItem.display_id
-    });
-  }
-
-      for (const perf of performances) {
-        if (perf.location && perf.date && perf.time) {
-          await db.performances.add({
-            band_id: bandName.trim(),
-            location_id: perf.location,
-            date: perf.date,
-            time: perf.time
-          });
-        }
+      const registered = [];
+      
+      for (const item of validItems) {
+        const gearId = await db.gear.add({
+          band_id: bandName.trim(),
+          description: item.description.trim(),
+          qr_code: '',
+          current_location_id: item.initialLocation ? parseInt(item.initialLocation) : null,
+          status: 'active',
+          created_at: new Date(),
+          in_transit: false,
+          checked_out: false,
+          lastUpdated: new Date()
+        });
+        
+        const qrCode = await generateQRCode(gearId);
+        await db.gear.update(gearId, { qr_code: qrCode });
+        
+        const savedItem = await db.gear.get(gearId);
+        
+        registered.push({
+          id: gearId,
+          band: bandName.trim(),
+          description: item.description.trim(),
+          qrCode: qrCode,
+          display_id: savedItem.display_id
+        });
       }
 
       setRegisteredItems(registered);
-      setMessage(`✓ Registered ${registered.length} item(s) successfully!`);
+      setMessage(`${registered.length} item(s) registered successfully`);
       setTimeout(() => setMessage(''), 3000);
     } catch (error) {
       console.error('Error registering gear:', error);
-      setMessage('❌ Error registering items');
+      setMessage('Error registering items');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -124,369 +96,235 @@ export default function RegisterGear() {
   };
 
   const handleReset = () => {
-    setItems([{ description: '' }]);
     setBandName('');
-    setPerformances([]);
+    setItems([{ description: '', initialLocation: '' }]);
     setRegisteredItems([]);
-    setPrintLayout('sheet');
+  };
+
+  const styles = {
+    pageTitle: {
+      marginBottom: '20px',
+      textAlign: 'center',
+      color: '#ffa500',
+      fontSize: '14px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    message: {
+      padding: '15px',
+      marginBottom: '20px',
+      backgroundColor: message.includes('Error') || message.includes('required') ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)',
+      color: message.includes('Error') || message.includes('required') ? '#ff6b6b' : '#4caf50',
+      borderRadius: '6px',
+      border: `2px solid ${message.includes('Error') || message.includes('required') ? '#f44336' : '#4caf50'}`,
+      fontSize: '14px',
+      fontWeight: '600'
+    },
+    formGroup: {
+      marginBottom: '20px'
+    },
+    label: {
+      display: 'block',
+      marginBottom: '8px',
+      fontWeight: '700',
+      color: '#ffa500',
+      fontSize: '12px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    input: {
+      width: '100%',
+      padding: '12px',
+      fontSize: '14px',
+      borderRadius: '4px',
+      border: '2px solid #3a3a3a',
+      boxSizing: 'border-box',
+      color: '#e0e0e0',
+      backgroundColor: '#2d2d2d'
+    },
+    itemCard: {
+      padding: '16px',
+      backgroundColor: '#2d2d2d',
+      borderRadius: '6px',
+      marginBottom: '12px',
+      border: '1px solid #3a3a3a'
+    },
+    itemHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '12px'
+    },
+    itemNumber: {
+      color: '#ffa500',
+      fontSize: '14px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    removeBtn: {
+      padding: '8px 16px',
+      backgroundColor: '#2d2d2d',
+      color: '#ff6b6b',
+      border: '2px solid #ff6b6b',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '12px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    button: {
+      width: '100%',
+      padding: '16px',
+      backgroundColor: '#ffa500',
+      color: '#1a1a1a',
+      border: 'none',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      marginBottom: '10px'
+    },
+    buttonSecondary: {
+      width: '100%',
+      padding: '16px',
+      backgroundColor: '#2d2d2d',
+      color: '#ffa500',
+      border: '2px solid #ffa500',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      marginBottom: '10px'
+    },
+    successBox: {
+      padding: '20px',
+      backgroundColor: 'rgba(76, 175, 80, 0.2)',
+      borderRadius: '6px',
+      marginBottom: '20px',
+      border: '2px solid #4caf50',
+      textAlign: 'center'
+    },
+    successTitle: {
+      color: '#4caf50',
+      fontSize: '16px',
+      fontWeight: '700',
+      marginBottom: '12px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    previewItem: {
+      padding: '8px',
+      marginBottom: '8px',
+      backgroundColor: '#1a1a1a',
+      borderRadius: '4px',
+      border: '1px solid #3a3a3a',
+      color: '#e0e0e0',
+      fontSize: '14px',
+      textAlign: 'left'
+    }
   };
 
   return (
-    <div style={{ maxWidth: '800px', margin: '0 auto' }}>
-      <h2 style={{ marginBottom: '20px', color: '#1a1a1a' }}>Register Gear (Chaos Gate)</h2>
-
-      {message && (
-        <div style={{
-          padding: '15px',
-          marginBottom: '20px',
-          backgroundColor: message.includes('❌') ? '#ffebee' : '#e8f5e9',
-          color: message.includes('❌') ? '#c62828' : '#2e7d32',
-          borderRadius: '5px',
-          border: `1px solid ${message.includes('❌') ? '#ef5350' : '#66bb6a'}`
-        }}>
-          {message}
-        </div>
-      )}
-
+    <div className="component-content">
       {registeredItems.length === 0 ? (
         <div>
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '5px',
-              fontWeight: 'bold',
-              color: '#333'
-            }}>
-              Band Name
-            </label>
+          <div style={styles.pageTitle}>Register New Gear</div>
+
+          {message && (
+            <div style={styles.message}>
+              {message}
+            </div>
+          )}
+
+          <div style={styles.formGroup}>
+            <label style={styles.label}>Band Name</label>
             <input
               type="text"
               value={bandName}
               onChange={(e) => setBandName(e.target.value)}
               placeholder="Enter band name"
-              style={{
-                width: '100%',
-                padding: '10px',
-                fontSize: '16px',
-                borderRadius: '5px',
-                border: '1px solid #ddd',
-                boxSizing: 'border-box',
-                color: '#333',
-                backgroundColor: '#fff'
-              }}
+              style={styles.input}
             />
           </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '10px'
-            }}>
-              <label style={{ fontWeight: 'bold', color: '#333' }}>Items</label>
-              <button
-                onClick={handleAddItem}
-                style={{
-                  padding: '8px 15px',
-                  backgroundColor: '#2ecc71',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                + Add Another Item
-              </button>
-            </div>
-
-            {items.map((item, index) => (
-              <div key={index} style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                <input
-                  type="text"
-                  value={item.description}
-                  onChange={(e) => handleItemChange(index, e.target.value)}
-                  placeholder={`Item ${index + 1} description`}
-                  style={{
-                    flex: 1,
-                    padding: '10px',
-                    fontSize: '16px',
-                    borderRadius: '5px',
-                    border: '1px solid #ddd',
-                    color: '#333',
-                    backgroundColor: '#fff'
-                  }}
-                />
+          {items.map((item, index) => (
+            <div key={index} style={styles.itemCard}>
+              <div style={styles.itemHeader}>
+                <div style={styles.itemNumber}>Item {index + 1}</div>
                 {items.length > 1 && (
-                  <button
-                    onClick={() => handleRemoveItem(index)}
-                    style={{
-                      padding: '10px 15px',
-                      backgroundColor: '#e74c3c',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '5px',
-                      cursor: 'pointer'
-                    }}
-                  >
+                  <button onClick={() => handleRemoveItem(index)} style={styles.removeBtn}>
                     Remove
                   </button>
                 )}
               </div>
-            ))}
-          </div>
 
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              marginBottom: '10px'
-            }}>
-              <label style={{ fontWeight: 'bold', color: '#333' }}>Performance Schedule (Optional)</label>
-              <button
-                onClick={handleAddPerformance}
-                style={{
-                  padding: '8px 15px',
-                  backgroundColor: '#9c27b0',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontSize: '14px'
-                }}
-              >
-                + Add Performance
-              </button>
-            </div>
-
-            {performances.map((perf, index) => (
-              <div
-                key={index}
-                style={{
-                  padding: '15px',
-                  marginBottom: '10px',
-                  backgroundColor: '#f5f5f5',
-                  borderRadius: '5px',
-                  border: '1px solid #ddd'
-                }}
-              >
-                <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
-                      Stage/Location
-                    </label>
-                    <select
-                      value={perf.location}
-                      onChange={(e) => handlePerformanceChange(index, 'location', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: '14px',
-                        borderRadius: '5px',
-                        border: '1px solid #ddd',
-                        color: '#333',
-                        backgroundColor: '#fff'
-                      }}
-                    >
-                      <option value="">Select location...</option>
-                      {locations.map(loc => (
-                        <option key={loc.id} value={loc.id}>
-                          {loc.emoji ? `${loc.emoji} ` : ''}{loc.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
-                      Date
-                    </label>
-                    <input
-                      type="date"
-                      value={perf.date}
-                      onChange={(e) => handlePerformanceChange(index, 'date', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: '14px',
-                        borderRadius: '5px',
-                        border: '1px solid #ddd',
-                        color: '#333',
-                        backgroundColor: '#fff'
-                      }}
-                    />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <label style={{ display: 'block', marginBottom: '5px', fontSize: '14px', color: '#333', fontWeight: 'bold' }}>
-                      Time
-                    </label>
-                    <input
-                      type="time"
-                      value={perf.time}
-                      onChange={(e) => handlePerformanceChange(index, 'time', e.target.value)}
-                      style={{
-                        width: '100%',
-                        padding: '8px',
-                        fontSize: '14px',
-                        borderRadius: '5px',
-                        border: '1px solid #ddd',
-                        color: '#333',
-                        backgroundColor: '#fff'
-                      }}
-                    />
-                  </div>
-                </div>
-                <button
-                  onClick={() => handleRemovePerformance(index)}
-                  style={{
-                    padding: '6px 12px',
-                    backgroundColor: '#e74c3c',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    fontSize: '12px'
-                  }}
-                >
-                  Remove
-                </button>
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Item Description</label>
+                <input
+                  type="text"
+                  value={item.description}
+                  onChange={(e) => handleItemChange(index, 'description', e.target.value)}
+                  placeholder="e.g. Guitar, Drum Kit"
+                  style={styles.input}
+                />
               </div>
-            ))}
-          </div>
 
-          <button
-            onClick={handleRegister}
-            style={{
-              width: '100%',
-              padding: '15px',
-              backgroundColor: '#0066cc',
-              color: 'white',
-              border: 'none',
-              borderRadius: '5px',
-              fontSize: '18px',
-              fontWeight: 'bold',
-              cursor: 'pointer'
-            }}
-          >
-            Register Items
+              <div style={styles.formGroup}>
+                <label style={styles.label}>Initial Location (Optional)</label>
+                <select
+                  value={item.initialLocation}
+                  onChange={(e) => handleItemChange(index, 'initialLocation', e.target.value)}
+                  style={styles.input}
+                >
+                  <option value="">Select location...</option>
+                  {locations.map(loc => (
+                    <option key={loc.id} value={loc.id}>{loc.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          ))}
+
+          <button onClick={handleRegister} style={styles.button}>
+            ✓ Register & Print QR
+          </button>
+
+          <button onClick={handleAddItem} style={styles.buttonSecondary}>
+            + Add Another Item
           </button>
         </div>
       ) : (
         <div>
-          <div style={{
-            padding: '15px',
-            backgroundColor: '#e8f5e9',
-            borderRadius: '5px',
-            marginBottom: '20px',
-            border: '1px solid #4caf50'
-          }}>
-            <strong>✓ {registeredItems.length} item(s) registered successfully!</strong>
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <h3 style={{ color: '#1a1a1a' }}>Print Layout</h3>
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
-              <button
-                onClick={() => setPrintLayout('sheet')}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: printLayout === 'sheet' ? '#0066cc' : '#f0f0f0',
-                  color: printLayout === 'sheet' ? 'white' : '#333',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontWeight: printLayout === 'sheet' ? 'bold' : 'normal'
-                }}
-              >
-                Multiple per Sheet
-              </button>
-              <button
-                onClick={() => setPrintLayout('pages')}
-                style={{
-                  padding: '10px 20px',
-                  backgroundColor: printLayout === 'pages' ? '#0066cc' : '#f0f0f0',
-                  color: printLayout === 'pages' ? 'white' : '#333',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontWeight: printLayout === 'pages' ? 'bold' : 'normal'
-                }}
-              >
-                One per Page
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: '10px', marginBottom: '30px' }}>
-            <button
-              onClick={handlePrint}
-              style={{
-                flex: 1,
-                padding: '15px',
-                backgroundColor: '#2ecc71',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              Print Labels
-            </button>
-            <button
-              onClick={handleReset}
-              style={{
-                flex: 1,
-                padding: '15px',
-                backgroundColor: '#95a5a6',
-                color: 'white',
-                border: 'none',
-                borderRadius: '5px',
-                fontSize: '16px',
-                fontWeight: 'bold',
-                cursor: 'pointer'
-              }}
-            >
-              Register More Items
-            </button>
-          </div>
-
-          <div className="no-print">
-            <h3 style={{ color: '#1a1a1a' }}>Preview ({registeredItems.length} labels)</h3>
-            <div style={{
-              border: '2px dashed #ddd',
-              padding: '20px',
-              borderRadius: '5px',
-              backgroundColor: '#fafafa'
-            }}>
-              {registeredItems.slice(0, 3).map(item => (
-                <div key={item.id} style={{
-                  padding: '10px',
-                  marginBottom: '10px',
-                  backgroundColor: 'white',
-                  borderRadius: '5px',
-                  border: '1px solid #ddd',
-                  color: '#333'
-                }}>
-                  <strong>{item.band}</strong> - {item.description}
+          <div style={styles.successBox}>
+            <div style={styles.successTitle}>✓ {registeredItems.length} Item(s) Registered</div>
+            {registeredItems.map(item => (
+              <div key={item.id} style={styles.previewItem}>
+                <strong>{item.band}</strong> - {item.description}
+                <div style={{ fontSize: '12px', color: '#888', marginTop: '4px' }}>
+                  #{String(item.display_id || '0000').padStart(4, '0')}
                 </div>
-              ))}
-              {registeredItems.length > 3 && (
-                <div style={{ textAlign: 'center', color: '#666', fontStyle: 'italic' }}>
-                  ...and {registeredItems.length - 3} more
-                </div>
-              )}
-            </div>
+              </div>
+            ))}
           </div>
+
+          <button onClick={handlePrint} style={styles.button}>
+            🖨️ Print All Labels
+          </button>
+
+          <button onClick={handleReset} style={styles.buttonSecondary}>
+            + Register More Items
+          </button>
 
           <div className="print-only">
             {registeredItems.map(item => (
-              <div
-                key={item.id}
-                className={printLayout === 'sheet' ? 'print-label-small' : 'print-label-page'}
-              >
+              <div key={item.id} className="print-label-small">
                 <img
                   src={item.qrCode}
                   alt={`QR Code for ${item.description}`}
@@ -507,7 +345,6 @@ export default function RegisterGear() {
                 }}>
                   {item.band}
                 </div>
-               
                 <div style={{
                   fontSize: '4.5mm',
                   marginBottom: '2mm',
@@ -542,49 +379,20 @@ export default function RegisterGear() {
                 top: 0;
               }
 
-              .no-print {
-                display: none !important;
-              }
-              
-              .print-only {
-                display: block !important;
-              }
-
               @page {
-                size: ${printLayout === 'pages' ? '74mm 105mm' : 'A4'};
-                margin: ${printLayout === 'pages' ? '0' : '8mm'};
+                size: A4;
+                margin: 8mm;
               }
 
-              ${printLayout === 'pages' ? `
-                .print-label-page {
-                  display: block;
-                  width: 74mm;
-                  height: 105mm;
-                  padding: 5mm;
-                  box-sizing: border-box;
-                  page-break-after: always;
-                  page-break-inside: avoid;
-                }
-                .print-label-page:last-child {
-                  page-break-after: avoid;
-                }
-                .print-label-small {
-                  display: none;
-                }
-              ` : `
-                .print-label-small {
-                  display: inline-block;
-                  width: 90mm;
-                  padding: 5mm;
-                  margin: 2mm;
-                  box-sizing: border-box;
-                  vertical-align: top;
-                  page-break-inside: avoid;
-                }
-                .print-label-page {
-                  display: none;
-                }
-              `}
+              .print-label-small {
+                display: inline-block;
+                width: 90mm;
+                padding: 5mm;
+                margin: 2mm;
+                box-sizing: border-box;
+                vertical-align: top;
+                page-break-inside: avoid;
+              }
             }
 
             @media screen {

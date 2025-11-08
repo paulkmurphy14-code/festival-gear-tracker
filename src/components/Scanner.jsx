@@ -39,31 +39,27 @@ export default function Scanner({ onScan }) {
     }
   };
 
- const stopScanning = () => {
-  // Cancel animation frame
-  if (animationFrameRef.current) {
-    cancelAnimationFrame(animationFrameRef.current);
-    animationFrameRef.current = null;
-  }
+  const stopScanning = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
 
-  // Stop and clear video
-  if (videoRef.current) {
-    videoRef.current.pause();
-    videoRef.current.srcObject = null;
-  }
+    if (videoRef.current) {
+      videoRef.current.pause();
+      videoRef.current.srcObject = null;
+    }
 
-  // Stop all tracks
-  if (streamRef.current) {
-    const tracks = streamRef.current.getTracks();
-    tracks.forEach(track => {
-      track.stop();
-      console.log('Track stopped:', track.kind);
-    });
-    streamRef.current = null;
-  }
+    if (streamRef.current) {
+      const tracks = streamRef.current.getTracks();
+      tracks.forEach(track => {
+        track.stop();
+      });
+      streamRef.current = null;
+    }
 
-  setScanning(false);
-};
+    setScanning(false);
+  };
 
   const tick = () => {
     if (videoRef.current && canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
@@ -83,18 +79,14 @@ export default function Scanner({ onScan }) {
 
       if (code) {
         const now = Date.now();
-        // Prevent duplicate scans within 2 seconds
         if (code.data !== lastScannedRef.current || now - lastScanTimeRef.current > 2000) {
           lastScannedRef.current = code.data;
           lastScanTimeRef.current = now;
-          
-          console.log('QR Code detected:', code.data);
           
           if (onScan) {
             onScan(code.data);
           }
           
-          // Stop scanning after successful scan
           stopScanning();
           return;
         }
@@ -104,43 +96,84 @@ export default function Scanner({ onScan }) {
     animationFrameRef.current = requestAnimationFrame(tick);
   };
 
+  const styles = {
+    container: {
+      position: 'relative',
+      width: '100%',
+      maxWidth: '500px',
+      margin: '0 auto'
+    },
+    errorBox: {
+      padding: '20px',
+      backgroundColor: 'rgba(244, 67, 54, 0.2)',
+      color: '#ff6b6b',
+      borderRadius: '6px',
+      textAlign: 'center',
+      border: '2px solid #f44336',
+      fontSize: '14px',
+      fontWeight: '600'
+    },
+    videoContainer: {
+      position: 'relative',
+      width: '100%',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      border: '3px solid #ffa500',
+      backgroundColor: '#2d2d2d'
+    },
+    video: {
+      width: '100%',
+      display: scanning ? 'block' : 'none'
+    },
+    loadingBox: {
+      padding: '60px 20px',
+      textAlign: 'center',
+      color: '#888',
+      fontSize: '14px',
+      fontWeight: '600'
+    },
+    scanLine: {
+      position: 'absolute',
+      width: '100%',
+      height: '3px',
+      background: 'linear-gradient(90deg, transparent, #ffa500, transparent)',
+      animation: 'scan 2s linear infinite',
+      top: 0
+    }
+  };
+
   return (
-    <div style={{ position: 'relative', width: '100%', maxWidth: '500px', margin: '0 auto' }}>
+    <div className="component-content">
       {error ? (
-        <div style={{
-          padding: '20px',
-          backgroundColor: '#ffebee',
-          color: '#c62828',
-          borderRadius: '5px',
-          textAlign: 'center'
-        }}>
+        <div style={styles.errorBox}>
           {error}
         </div>
       ) : (
-        <>
+        <div style={styles.videoContainer}>
           <video
             ref={videoRef}
-            style={{
-              width: '100%',
-              borderRadius: '10px',
-              display: scanning ? 'block' : 'none'
-            }}
+            style={styles.video}
           />
           <canvas
             ref={canvasRef}
             style={{ display: 'none' }}
           />
           {!scanning && (
-            <div style={{
-              padding: '20px',
-              textAlign: 'center',
-              color: '#666'
-            }}>
+            <div style={styles.loadingBox}>
               Initializing camera...
             </div>
           )}
-        </>
+          {scanning && (
+            <div style={styles.scanLine}></div>
+          )}
+        </div>
       )}
+      <style>{`
+        @keyframes scan {
+          0% { top: 0; }
+          100% { top: 100%; }
+        }
+      `}</style>
     </div>
   );
 }

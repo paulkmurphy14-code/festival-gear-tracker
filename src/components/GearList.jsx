@@ -9,13 +9,14 @@ export default function GearList({ locationColors, currentUser }) {
   const [locations, setLocations] = useState([]);
   const [bands, setBands] = useState([]);
   const [editingItem, setEditingItem] = useState(null);
-  const [editingLocationFor, setEditingLocationFor] = useState(null);
   const [viewingHistory, setViewingHistory] = useState(null);
   const [filterType, setFilterType] = useState('all');
   const [filterValue, setFilterValue] = useState('');
   const [selectedItems, setSelectedItems] = useState([]);
   const [printLayout, setPrintLayout] = useState('sheet');
   const [itemToPrint, setItemToPrint] = useState(null);
+  const [expandedBands, setExpandedBands] = useState({});
+  const [selectedItemDetail, setSelectedItemDetail] = useState(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -26,10 +27,17 @@ export default function GearList({ locationColors, currentUser }) {
       setGearItems(items);
       setLocations(locs);
       setBands(uniqueBands);
+      
+      // Start with all bands collapsed
+      const expanded = {};
+      uniqueBands.forEach(band => {
+        expanded[band] = false;
+      });
+      setExpandedBands(expanded);
     } catch (error) {
       console.error('Error loading data:', error);
     }
-  }, []);
+  }, [db]);
 
   useEffect(() => {
     loadData();
@@ -38,18 +46,16 @@ export default function GearList({ locationColors, currentUser }) {
   }, [loadData]);
 
   const getTimeAgo = (date) => {
-  if (!date) return '';
-  
-  // Handle Firestore Timestamp
-  const updated = date.toDate ? date.toDate() : new Date(date);
-  const now = new Date();
-  const seconds = Math.floor((now - updated) / 1000);
+    if (!date) return '';
+    const updated = date.toDate ? date.toDate() : new Date(date);
+    const now = new Date();
+    const seconds = Math.floor((now - updated) / 1000);
 
-  if (seconds < 60) return 'Just now';
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} mins ago`;
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`;
-  return `${Math.floor(seconds / 86400)} days ago`;
-};
+    if (seconds < 60) return 'Just now';
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    return `${Math.floor(seconds / 86400)}d ago`;
+  };
 
   const getLocationInfo = useCallback((locationId) => {
     const location = locations.find(loc => loc.id === locationId);
@@ -58,10 +64,11 @@ export default function GearList({ locationColors, currentUser }) {
   }, [locations]);
 
   const handleDelete = async (id) => {
-    const confirmed = window.confirm('Are you sure you want to delete this item? This cannot be undone.');
+    const confirmed = window.confirm('Are you sure you want to delete this item?');
     if (confirmed) {
       try {
         await db.gear.delete(id);
+        setSelectedItemDetail(null);
         loadData();
       } catch (error) {
         console.error('Error deleting gear:', error);
@@ -76,132 +83,86 @@ export default function GearList({ locationColors, currentUser }) {
         current_location_id: newLocationId,
         in_transit: false,
         checked_out: false,
-        transit_origin_id: null,
-        transit_destination_id: null,
         lastUpdated: new Date()
       });
-    
+
       await db.scans.add({
         gear_id: itemId,
         location_id: newLocationId,
         timestamp: new Date(),
         synced: false,
-        user_id: 'manual_edit',  // We don't have currentUser in GearList yet
+        user_id: 'manual_edit',
         user_email: currentUser?.email || 'Unknown user',
         action: 'manual_location_change'
       });
-    
-      setEditingLocationFor(null);
+
+      setSelectedItemDetail(null);
       loadData();
     } catch (error) {
       console.error('Error updating location:', error);
       alert('Error updating location');
     }
-  }, [db]);
+  }, [db, currentUser]);
 
   const handleBulkCheckout = useCallback(async (type) => {
-  if (selectedItems.length === 0) return;
-
-  const confirmed = window.confirm(
-    `Check out ${selectedItems.length} item(s) ${type === 'transit' ? 'for transit' : 'to band'}?`
-  );
-
-  if (!confirmed) return;
-
-  try {
-    for (const itemId of selectedItems) {
-      const item = gearItems.find(i => i.id === itemId);
-      if (!item) continue;
-    
-      if (type === 'transit') {
-        await db.gear.update(itemId, {
-          in_transit: true,
-          transit_origin_id: item.current_location_id,
-          transit_destination_id: null,
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: itemId,
-          location_id: item.current_location_id,
-          timestamp: new Date(),
-          synced: false,
-          user_id: 'bulk_action',
-          user_email: currentUser?.email || 'Unknown user',
-          action: 'bulk_check_out_transit'
-        });
-      } else if (type === 'band') {
-        await db.gear.update(itemId, {
-          checked_out: true,
-          lastUpdated: new Date()
-        });
-        
-        await db.scans.add({
-          gear_id: itemId,
-          location_id: item.current_location_id,
-          timestamp: new Date(),
-          synced: false,
-          user_id: 'bulk_action',
-          user_email: currentUser?.email || 'Unknown user',
-          action: 'bulk_check_out_band'
-        });
-      }
-    }
-  
-    setSelectedItems([]);
-    loadData();
-    alert(`✓ ${selectedItems.length} item(s) checked out successfully!`);
-  } catch (error) {
-    console.error('Error with bulk checkout:', error);
-    alert('❌ Error checking out items');
-  }
-}, [selectedItems, gearItems, db]);
-
-  const handleBulkLocationChange = useCallback(async (newLocationId) => {
     if (selectedItems.length === 0) return;
-  
-    const locationName = getLocationInfo(newLocationId).name;
+
     const confirmed = window.confirm(
-      `Move ${selectedItems.length} item(s) to ${locationName}?`
+      `Check out ${selectedItems.length} item(s) ${type === 'transit' ? 'for transit' : 'to band'}?`
     );
-  
+
     if (!confirmed) return;
-  
+
     try {
       for (const itemId of selectedItems) {
-        await db.gear.update(itemId, {
-          current_location_id: newLocationId,
-          in_transit: false,
-          checked_out: false,
-          transit_origin_id: null,
-          transit_destination_id: null,
-          lastUpdated: new Date()
-        });
-     
-        await db.scans.add({
-          gear_id: itemId,
-          location_id: newLocationId,
-          timestamp: new Date(),
-          synced: false,
-          user_id: 'bulk_action',
-          user_email: currentUser?.email || 'Unknown user',
-          action: 'bulk_location_change'
-        });
+        const item = gearItems.find(i => i.id === itemId);
+        if (!item) continue;
+
+        if (type === 'transit') {
+          await db.gear.update(itemId, {
+            in_transit: true,
+            lastUpdated: new Date()
+          });
+
+          await db.scans.add({
+            gear_id: itemId,
+            location_id: item.current_location_id,
+            timestamp: new Date(),
+            synced: false,
+            user_id: 'bulk_action',
+            user_email: currentUser?.email || 'Unknown user',
+            action: 'bulk_check_out_transit'
+          });
+        } else if (type === 'band') {
+          await db.gear.update(itemId, {
+            checked_out: true,
+            lastUpdated: new Date()
+          });
+
+          await db.scans.add({
+            gear_id: itemId,
+            location_id: item.current_location_id,
+            timestamp: new Date(),
+            synced: false,
+            user_id: 'bulk_action',
+            user_email: currentUser?.email || 'Unknown user',
+            action: 'bulk_check_out_band'
+          });
+        }
       }
-    
+
       setSelectedItems([]);
       loadData();
-      alert(`✓ ${selectedItems.length} item(s) moved to ${locationName}!`);
+      alert(`${selectedItems.length} item(s) checked out successfully`);
     } catch (error) {
-      console.error('Error with bulk location change:', error);
-      alert('❌ Error moving items');
+      console.error('Error with bulk checkout:', error);
+      alert('Error checking out items');
     }
-  }, [selectedItems, db, getLocationInfo]);
-
+  }, [selectedItems, gearItems, db, currentUser]);
+  
   const loadScanHistory = useCallback(async (gearId) => {
     try {
       const scans = await db.scans.where('gear_id', '==', gearId).toArray();
-      // Sort by timestamp descending (newest first)
       scans.sort((a, b) => {
         const timeA = a.timestamp?.toDate ? a.timestamp.toDate() : new Date(a.timestamp);
         const timeB = b.timestamp?.toDate ? b.timestamp.toDate() : new Date(b.timestamp);
@@ -214,25 +175,71 @@ export default function GearList({ locationColors, currentUser }) {
     }
   }, [db]);
 
-  const handleReprint = (item) => {
+  const handleBulkLocationChange = useCallback(async (newLocationId) => {
+    if (selectedItems.length === 0) return;
 
-  setItemToPrint(item);
-  const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
-  setTimeout(() => {
-    window.print();
+    const locationName = getLocationInfo(newLocationId).name;
+    const confirmed = window.confirm(
+      `Move ${selectedItems.length} item(s) to ${locationName}?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      for (const itemId of selectedItems) {
+        await db.gear.update(itemId, {
+          current_location_id: newLocationId,
+          in_transit: false,
+          checked_out: false,
+          lastUpdated: new Date()
+        });
+
+        await db.scans.add({
+          gear_id: itemId,
+          location_id: newLocationId,
+          timestamp: new Date(),
+          synced: false,
+          user_id: 'bulk_action',
+          user_email: currentUser?.email || 'Unknown user',
+          action: 'bulk_location_change'
+        });
+      }
+
+      setSelectedItems([]);
+      loadData();
+      alert(`${selectedItems.length} item(s) moved to ${locationName}`);
+    } catch (error) {
+      console.error('Error with bulk location change:', error);
+      alert('Error moving items');
+    }
+  }, [selectedItems, db, getLocationInfo, currentUser]);
+
+  const handleReprint = (item) => {
+    setItemToPrint(item);
+    const delay = /mobile|android|iphone|ipad/i.test(navigator.userAgent) ? 2500 : 500;
     setTimeout(() => {
-      setItemToPrint(null);
+      window.print();
+      setTimeout(() => {
+        setItemToPrint(null);
+      }, delay);
     }, delay);
-  }, delay);
-};
+  };
 
   const handleSaveEdit = async () => {
     setEditingItem(null);
+    setSelectedItemDetail(null);
     loadData();
   };
 
   const handleCancelEdit = () => {
     setEditingItem(null);
+  };
+
+  const toggleBand = (bandName) => {
+    setExpandedBands(prev => ({
+      ...prev,
+      [bandName]: !prev[bandName]
+    }));
   };
 
   const groupByBand = (items) => {
@@ -255,7 +262,7 @@ export default function GearList({ locationColors, currentUser }) {
       filtered = filtered.filter(item => item.current_location_id === parseInt(filterValue));
     } else if (filterType === 'status' && filterValue) {
       if (filterValue === 'active') {
-        filtered = filtered.filter(item => !item.in_transit && !item.checked_out);
+        filtered = filtered.filter(item => !item.in_transit && !item.checked_out && item.current_location_id);
       } else if (filterValue === 'in-transit') {
         filtered = filtered.filter(item => item.in_transit);
       } else if (filterValue === 'checked-out') {
@@ -288,756 +295,531 @@ export default function GearList({ locationColors, currentUser }) {
     }
   };
 
-  const handlePrintSelected = () => {
-    if (selectedItems.length === 0) {
-      alert('Please select at least one item to print');
-      return;
+  const getStatusBadge = (item) => {
+    if (item.in_transit) {
+      return { text: 'IN TRANSIT', color: '#ff6b6b', bg: 'rgba(244, 67, 54, 0.2)', border: '#f44336', pulse: true };
+    } else if (item.checked_out) {
+      return { text: 'CHECKED OUT', color: '#888', bg: 'rgba(120, 120, 120, 0.15)', border: '#666', pulse: false };
+    } else if (item.current_location_id) {
+      const loc = getLocationInfo(item.current_location_id);
+      return { text: loc.name.toUpperCase(), color: '#4caf50', bg: 'rgba(76, 175, 80, 0.15)', border: '#4caf50', pulse: false };
+    } else {
+      return { text: 'NO LOCATION', color: '#888', bg: 'rgba(120, 120, 120, 0.15)', border: '#666', pulse: false };
     }
-    window.print();
   };
 
-  const renderGearItem = (item) => {
-    const locationInfo = getLocationInfo(item.current_location_id);
-    const isSelected = selectedItems.includes(item.id);
-
-    return (
-      <div
-        key={item.id}
-        style={{
-          padding: '20px',
-          marginBottom: '12px',
-          background: isSelected ? 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)' : 'white',
-          borderRadius: '16px',
-          border: isSelected ? '2px solid #0066cc' : '1px solid #e0e0e0',
-          boxShadow: isSelected ? '0 4px 12px rgba(0,102,204,0.2)' : '0 2px 8px rgba(0,0,0,0.08)',
-          transition: 'all 0.2s ease'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '16px' }}>
-          <div style={{ flex: 1 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => handleSelectItem(item.id)}
-                style={{ 
-                  width: '20px', 
-                  height: '20px', 
-                  cursor: 'pointer',
-                  accentColor: '#0066cc'
-                }}
-              />
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: '700', fontSize: '18px', color: '#1a1a1a', marginBottom: '4px' }}>
-                  {item.description}
-                </div>
-                <div style={{ fontSize: '13px', color: '#666' }}>
-                  {item.band_id} • #{String(item.display_id || '0000').padStart(4, '0')}
-                </div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-              {item.checked_out ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                  color: 'white',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 8px rgba(134,142,150,0.3)'
-                }}>
-                  <span style={{ fontSize: '18px' }}>🎸</span>
-                  <span>Checked Out to Band</span>
-                </div>
-             ) : item.in_transit ? (
-               <div style={{
-                 display: 'inline-flex',
-                 alignItems: 'center',
-                 gap: '8px',
-                 padding: '8px 16px',
-                 background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                 color: 'white',
-                 borderRadius: '12px',
-                 fontSize: '14px',
-                 fontWeight: '600',
-                 boxShadow: '0 2px 8px rgba(255,169,77,0.3)'
-               }}>
-                 <span style={{ fontSize: '18px' }}>🚚</span>
-                 <span>
-                   {item.transit_origin_id && item.transit_destination_id ? (
-                     <>
-                       {getLocationInfo(item.transit_origin_id).name} → {getLocationInfo(item.transit_destination_id).name}
-                     </>
-                   ) : item.transit_origin_id ? (
-                     <>In Transit From {getLocationInfo(item.transit_origin_id).name}</>
-                   ) : (
-                     'In Transit'
-                   )}
-                 </span>
-               </div>
-              ) : item.current_location_id ? (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  background: `linear-gradient(135deg, ${locationInfo.color} 0%, ${locationInfo.color}dd 100%)`,
-                  color: 'white',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: `0 2px 8px ${locationInfo.color}40`
-                }}>
-                  <span style={{ fontSize: '18px' }}>📍</span>
-                  <span>{locationInfo.name}</span>
-                </div>
-              ) : (
-                <div style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 16px',
-                  background: '#f5f5f5',
-                  color: '#666',
-                  borderRadius: '12px',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}>
-                  <span style={{ fontSize: '18px' }}>❓</span>
-                  <span>Not Checked In</span>
-                </div>
-              )}
-
-              {item.lastUpdated && (
-                <span style={{ fontSize: '13px', color: '#999', fontStyle: 'italic' }}>
-                  {getTimeAgo(item.lastUpdated)}
-                </span>
-              )}
-            </div>
-          </div>
-
-    {/* Location Editor */}
-    {editingLocationFor === item.id && (
-      <div style={{
-        marginTop: '12px',
-        padding: '12px',
-        background: 'linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%)',
-        borderRadius: '10px',
-        border: '1px solid #ffa94d'
-      }}>
-        <div style={{ marginBottom: '8px', fontSize: '14px', fontWeight: '600', color: '#e65100' }}>
-          Select New Location:
-        </div>
-        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-          {locations.map(loc => (
-            <button
-              key={loc.id}
-              onClick={() => handleLocationUpdate(item.id, loc.id)}
-              style={{
-                padding: '8px 16px',
-                background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
-                color: 'white',
-                border: 'none',
-                borderRadius: '8px',
-                cursor: 'pointer',
-                fontSize: '13px',
-                fontWeight: '600',
-                boxShadow: `0 2px 6px ${loc.color}40`
-              }}
-            >
-              {loc.name}
-            </button>
-          ))}
-        </div>
-      </div>
-    )}
-
-    {/* Scan History Viewer */}
-    {viewingHistory === item.id && (
-      <ScanHistory gearId={item.id} loadScanHistory={loadScanHistory} getLocationInfo={getLocationInfo} />
-    )}
-  
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '100px' }}>
-            <button
-              onClick={() => setEditingLocationFor(editingLocationFor === item.id ? null : item.id)}
-              style={{
-                padding: '10px 16px',
-                background: editingLocationFor === item.id ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : 'linear-gradient(135deg, #ffd43b 0%, #fab005 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: editingLocationFor === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(255,212,59,0.3)',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              title="Change location"
-            >
-              📍 {editingLocationFor === item.id ? 'Cancel' : 'Location'}
-            </button>
-
-            <button
-              onClick={() => setViewingHistory(viewingHistory === item.id ? null : item.id)}
-              style={{
-                padding: '10px 16px',
-                background: viewingHistory === item.id ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: viewingHistory === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(77,171,247,0.3)',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              title="View scan history"
-            >
-              📜 {viewingHistory === item.id ? 'Close' : 'History'}
-            </button>
-
-            <button
-              onClick={() => handleReprint(item)}
-              style={{
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: viewingHistory === item.id ? '0 2px 8px rgba(81,207,102,0.3)' : '0 2px 8px rgba(77,171,247,0.3)',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              title="Reprint QR label"
-            >
-              🖨️ Print
-            </button>
-            <button
-              onClick={() => handleEdit(item)}
-              style={{
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, #4dabf7 0%, #339af0 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(77,171,247,0.3)',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              ✏️ Edit
-            </button>
-            <button
-              onClick={() => handleDelete(item.id)}
-              style={{
-                padding: '10px 16px',
-                background: 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '10px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '600',
-                boxShadow: '0 2px 8px rgba(255,107,107,0.3)',
-                transition: 'transform 0.1s ease'
-              }}
-              onMouseDown={(e) => e.currentTarget.style.transform = 'scale(0.95)'}
-              onMouseUp={(e) => e.currentTarget.style.transform = 'scale(1)'}
-              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
-            >
-              🗑️ Delete
-            </button>
-          </div>
-        </div>
-      </div>
-    );
+  const styles = {
+    filters: {
+      display: 'flex',
+      gap: '8px',
+      marginBottom: '16px',
+      flexWrap: 'wrap'
+    },
+    filterBtn: (isActive) => ({
+      flex: 1,
+      minWidth: '80px',
+      padding: '10px',
+      background: isActive ? '#ffa500' : '#2d2d2d',
+      border: isActive ? 'none' : '1px solid #444',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontWeight: '600',
+      fontSize: '12px',
+      color: isActive ? '#1a1a1a' : '#999',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    }),
+    select: {
+      width: '100%',
+      padding: '12px',
+      fontSize: '14px',
+      borderRadius: '4px',
+      border: '2px solid #3a3a3a',
+      backgroundColor: '#1a1a1a',
+      color: '#e0e0e0',
+      marginBottom: '16px'
+    },
+    bandGroup: {
+      background: '#2d2d2d',
+      borderRadius: '6px',
+      marginBottom: '12px',
+      border: '1px solid #3a3a3a',
+      overflow: 'hidden'
+    },
+    bandHeader: {
+      padding: '14px 16px',
+      cursor: 'pointer',
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      background: '#2d2d2d',
+      borderLeft: '4px solid #ffa500'
+    },
+    bandName: {
+      fontSize: '15px',
+      color: '#ffa500',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    bandCount: {
+      fontSize: '12px',
+      color: '#888',
+      background: '#1a1a1a',
+      padding: '4px 10px',
+      borderRadius: '3px'
+    },
+    bandItems: {
+      borderTop: '1px solid #3a3a3a'
+    },
+    gearItem: {
+      padding: '12px 16px',
+      borderBottom: '1px solid #3a3a3a',
+      cursor: 'pointer',
+      transition: 'background 0.2s'
+    },
+    gearItemRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+    gearItemInfo: {
+      flex: 1
+    },
+    gearItemDesc: {
+      fontSize: '13px',
+      color: '#ccc',
+      marginBottom: '4px'
+    },
+    gearItemMeta: {
+      fontSize: '11px',
+      color: '#666'
+    },
+    badge: (badge) => ({
+      padding: '8px 12px',
+      background: badge.bg,
+      borderRadius: '4px',
+      fontSize: '12px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.8px',
+      minWidth: '120px',
+      textAlign: 'center',
+      color: badge.color,
+      borderLeft: `4px solid ${badge.border}`,
+      paddingLeft: '8px',
+      animation: badge.pulse ? 'pulse 2s ease-in-out infinite' : 'none',
+      boxShadow: badge.pulse ? `0 0 12px ${badge.bg}` : 'none'
+    }),
+    bulkActions: {
+      background: '#2d2d2d',
+      padding: '16px',
+      borderRadius: '6px',
+      marginBottom: '16px',
+      border: '2px solid #ffa500',
+      borderLeft: '4px solid #ffa500'
+    },
+    bulkTitle: {
+      color: '#ffa500',
+      fontSize: '14px',
+      fontWeight: '700',
+      marginBottom: '12px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    bulkButtons: {
+      display: 'flex',
+      gap: '8px',
+      flexWrap: 'wrap'
+    },
+    bulkBtn: {
+      padding: '10px 16px',
+      background: '#ffa500',
+      color: '#1a1a1a',
+      border: 'none',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '12px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    detailOverlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0,0,0,0.9)',
+      zIndex: 1000,
+      overflow: 'auto',
+      padding: '20px'
+    },
+    detailCard: {
+      background: '#2d2d2d',
+      borderRadius: '8px',
+      padding: '20px',
+      maxWidth: '600px',
+      margin: '0 auto',
+      border: '2px solid #ffa500'
+    },
+    detailTitle: {
+      color: '#ffa500',
+      fontSize: '18px',
+      fontWeight: '700',
+      marginBottom: '20px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    detailSection: {
+      marginBottom: '20px'
+    },
+    detailLabel: {
+      color: '#888',
+      fontSize: '12px',
+      fontWeight: '700',
+      marginBottom: '8px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px'
+    },
+    detailValue: {
+      color: '#e0e0e0',
+      fontSize: '16px',
+      marginBottom: '4px'
+    },
+    detailButtons: {
+      display: 'flex',
+      gap: '10px',
+      flexWrap: 'wrap',
+      marginTop: '20px'
+    },
+    detailBtn: {
+      padding: '12px 20px',
+      background: '#ffa500',
+      color: '#1a1a1a',
+      border: 'none',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    closeBtn: {
+      padding: '12px 20px',
+      background: '#2d2d2d',
+      color: '#ffa500',
+      border: '2px solid #ffa500',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      fontSize: '14px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    }
   };
 
   if (editingItem) {
+    return <EditGear item={editingItem} onSave={handleSaveEdit} onCancel={handleCancelEdit} />;
+  }
+
+  if (viewingHistory) {
     return (
-      <EditGear
-        item={editingItem}
-        onSave={handleSaveEdit}
-        onCancel={handleCancelEdit}
-      />
+      <div>
+        <ScanHistory 
+          gearId={viewingHistory} 
+          loadScanHistory={loadScanHistory} 
+          getLocationInfo={getLocationInfo} 
+        />
+        <button
+          onClick={() => setViewingHistory(null)}
+          style={{
+            marginTop: '20px',
+            width: '100%',
+            padding: '16px',
+            background: '#2d2d2d',
+            color: '#ffa500',
+            border: '2px solid #ffa500',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: '700',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}
+        >
+          Back to List
+        </button>
+      </div>
     );
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '20px',
-        padding: '24px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.1)',
-        marginBottom: '20px'
-      }}>
-        <h2 style={{ 
-          marginTop: 0, 
-          marginBottom: '24px', 
-          fontSize: '26px', 
-          color: '#1a1a1a',
-          fontWeight: '700'
-        }}>
-          Gear Inventory
-        </h2>
+    <div className="component-content">
+      <style>{`
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+            box-shadow: 0 0 12px rgba(244, 67, 54, 0.5);
+          }
+          50% {
+            opacity: 0.85;
+            box-shadow: 0 0 20px rgba(244, 67, 54, 0.8);
+          }
+        }
+      `}</style>
 
-        <div className="no-print">
-          {/* Filter Section - same as before */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ 
-              fontSize: '15px', 
-              fontWeight: '600', 
-              marginBottom: '12px',
-              color: '#495057'
-            }}>
-              Filter by:
-            </div>
-            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginBottom: '16px' }}>
-              <button
-                onClick={() => {
-                  setFilterType('all');
-                  setFilterValue('');
-                }}
-                style={{
-                  padding: '10px 20px',
-                  background: filterType === 'all' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                  color: filterType === 'all' ? 'white' : '#495057',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: filterType === 'all' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                Show All
-              </button>
-              <button
-                onClick={() => {
-                  setFilterType('band');
-                  setFilterValue('');
-                }}
-                style={{
-                  padding: '10px 20px',
-                  background: filterType === 'band' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                  color: filterType === 'band' ? 'white' : '#495057',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: filterType === 'band' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                By Band
-              </button>
-              <button
-                onClick={() => {
-                  setFilterType('location');
-                  setFilterValue('');
-                }}
-                style={{
-                  padding: '10px 20px',
-                  background: filterType === 'location' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                  color: filterType === 'location' ? 'white' : '#495057',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: filterType === 'location' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                By Location
-              </button>
-              <button
-                onClick={() => {
-                  setFilterType('status');
-                  setFilterValue('');
-                }}
-                style={{
-                  padding: '10px 20px',
-                  background: filterType === 'status' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                  color: filterType === 'status' ? 'white' : '#495057',
-                  border: 'none',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600',
-                  boxShadow: filterType === 'status' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none',
-                  transition: 'all 0.2s ease'
-                }}
-              >
-                By Status
-              </button>
-            </div>
+      {/* Filters */}
+      <div style={styles.filters}>
+        <button
+          onClick={() => { setFilterType('all'); setFilterValue(''); }}
+          style={styles.filterBtn(filterType === 'all')}
+        >
+          All
+        </button>
+        <button
+          onClick={() => { setFilterType('band'); setFilterValue(''); }}
+          style={styles.filterBtn(filterType === 'band')}
+        >
+          Band
+        </button>
+        <button
+          onClick={() => { setFilterType('location'); setFilterValue(''); }}
+          style={styles.filterBtn(filterType === 'location')}
+        >
+          Location
+        </button>
+        <button
+          onClick={() => { setFilterType('status'); setFilterValue(''); }}
+          style={styles.filterBtn(filterType === 'status')}
+        >
+          Status
+        </button>
+      </div>
 
-            {filterType === 'band' && (
-              <select
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '16px',
-                  borderRadius: '12px',
-                  border: '1px solid #dee2e6',
-                  backgroundColor: 'white',
-                  color: '#495057',
-                  fontWeight: '500'
-                }}
-              >
-                <option value="">Select a band...</option>
-                {bands.map(band => (
-                  <option key={band} value={band}>{band}</option>
-                ))}
-              </select>
-            )}
-
-            {filterType === 'location' && (
-              <select
-                value={filterValue}
-                onChange={(e) => setFilterValue(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '12px',
-                  fontSize: '16px',
-                  borderRadius: '12px',
-                  border: '1px solid #dee2e6',
-                  backgroundColor: 'white',
-                  color: '#495057',
-                  fontWeight: '500'
-                }}
-              >
-                <option value="">Select a location...</option>
-                {locations.map(loc => (
-                  <option key={loc.id} value={loc.id}>
-                    {loc.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            {filterType === 'status' && (
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => setFilterValue('active')}
-                  style={{
-                    padding: '10px 20px',
-                    background: filterValue === 'active' ? 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)' : '#f8f9fa',
-                    color: filterValue === 'active' ? 'white' : '#51cf66',
-                    border: filterValue === 'active' ? 'none' : '2px solid #51cf66',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    boxShadow: filterValue === 'active' ? '0 2px 8px rgba(81,207,102,0.3)' : 'none'
-                  }}
-                >
-                  📍 Active (at location)
-                </button>
-                <button
-                  onClick={() => setFilterValue('in-transit')}
-                  style={{
-                    padding: '10px 20px',
-                    background: filterValue === 'in-transit' ? 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)' : '#f8f9fa',
-                    color: filterValue === 'in-transit' ? 'white' : '#ffa94d',
-                    border: filterValue === 'in-transit' ? 'none' : '2px solid #ffa94d',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    boxShadow: filterValue === 'in-transit' ? '0 2px 8px rgba(255,169,77,0.3)' : 'none'
-                  }}
-                >
-                  🚚 In Transit
-                </button>
-                <button
-                  onClick={() => setFilterValue('checked-out')}
-                  style={{
-                    padding: '10px 20px',
-                    background: filterValue === 'checked-out' ? 'linear-gradient(135deg, #868e96 0%, #495057 100%)' : '#f8f9fa',
-                    color: filterValue === 'checked-out' ? 'white' : '#868e96',
-                    border: filterValue === 'checked-out' ? 'none' : '2px solid #868e96',
-                    borderRadius: '10px',
-                    cursor: 'pointer',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    boxShadow: filterValue === 'checked-out' ? '0 2px 8px rgba(134,142,150,0.3)' : 'none'
-                  }}
-                >
-                  🎸 Checked Out
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Bulk Selection */}
-          {filterType !== 'all' && (
-            <div style={{ marginBottom: '20px', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                onClick={handleSelectAllFiltered}
-                style={{
-                  padding: '12px 24px',
-                  background: 'linear-gradient(135deg, #cc5de8 0%, #9c36b5 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '15px',
-                  fontWeight: '600',
-                  boxShadow: '0 2px 8px rgba(204,93,232,0.3)'
-                }}
-              >
-                {selectedItems.length === filteredItems.length ? '✓ Deselect All' : '☐ Select All Filtered Items'}
-              </button>
-              {selectedItems.length > 0 && (
-                <span style={{ 
-                  padding: '8px 16px',
-                  background: '#e3f2fd',
-                  color: '#0066cc',
-                  borderRadius: '10px',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}>
-                  {selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
-                </span>
-              )}
-            </div>
-          )}
-
-          {/* Print Selected Section */}
-          {selectedItems.length > 0 && (
-            <div style={{
-              padding: '20px',
-              background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
-              borderRadius: '16px',
-              marginBottom: '24px',
-              border: '2px solid #0066cc'
-            }}>
-              <h3 style={{ 
-                marginTop: 0, 
-                marginBottom: '16px',
-                fontSize: '18px',
+      {filterType === 'band' && (
+        <div>
+          <select
+            value={filterValue}
+            onChange={(e) => setFilterValue(e.target.value)}
+            style={styles.select}
+          >
+            <option value="">Select band...</option>
+            {bands.map(band => (
+              <option key={band} value={band}>{band}</option>
+            ))}
+          </select>
+          {filterValue && (
+            <button
+              onClick={handleSelectAllFiltered}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: '#ffa500',
                 color: '#1a1a1a',
-                fontWeight: '700'
-              }}>
-                Print Selected Items ({selectedItems.length})
-              </h3>
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '600', 
-                  marginBottom: '10px',
-                  color: '#495057'
-                }}>
-                  Layout:
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button
-                    onClick={() => setPrintLayout('sheet')}
-                    style={{
-                      padding: '10px 20px',
-                      background: printLayout === 'sheet' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                      color: printLayout === 'sheet' ? 'white' : '#495057',
-                      border: printLayout === 'sheet' ? 'none' : '2px solid #dee2e6',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      boxShadow: printLayout === 'sheet' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
-                    }}
-                  >
-                    Multiple per Sheet
-                  </button>
-                  <button
-                    onClick={() => setPrintLayout('pages')}
-                    style={{
-                      padding: '10px 20px',
-                      background: printLayout === 'pages' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'white',
-                      color: printLayout === 'pages' ? 'white' : '#495057',
-                      border: printLayout === 'pages' ? 'none' : '2px solid #dee2e6',
-                      borderRadius: '10px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                      fontWeight: '600',
-                      boxShadow: printLayout === 'pages' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
-                    }}
-                  >
-                    One per Page
-                  </button>
-                </div>
-              </div>
-              <button
-                onClick={handlePrintSelected}
-                style={{
-                  padding: '14px 28px',
-                  background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '12px',
-                  cursor: 'pointer',
-                  fontSize: '16px',
-                  fontWeight: '700',
-                  boxShadow: '0 4px 12px rgba(81,207,102,0.3)'
-                }}
-              >
-                🖨️ Print {selectedItems.length} Label{selectedItems.length !== 1 ? 's' : ''}
-              </button>
-
-              {/* Bulk Location Change */}
-              <div style={{ marginBottom: '20px' }}>
-                <div style={{ 
-                  fontSize: '14px', 
-                  fontWeight: '600', 
-                  marginBottom: '10px',
-                  color: '#495057'
-                }}>
-                  📍 Move Selected Items to Location:
-                </div>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {locations.map(loc => (
-                    <button
-                      key={loc.id}
-                      onClick={() => handleBulkLocationChange(loc.id)}
-                      style={{
-                        padding: '10px 20px',
-                        background: `linear-gradient(135deg, ${loc.color} 0%, ${loc.color}dd 100%)`,
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '10px',
-                        cursor: 'pointer',
-                        fontSize: '14px',
-                        fontWeight: '600',
-                        boxShadow: `0 2px 6px ${loc.color}40`
-                      }}
-                    >
-                      {loc.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '16px', flexWrap: 'wrap' }}>
-                <button
-                  onClick={() => handleBulkCheckout('transit')}
-                  style={{
-                    padding: '14px 28px',
-                    background: 'linear-gradient(135deg, #ffa94d 0%, #fd7e14 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    boxShadow: '0 4px 12px rgba(255,169,77,0.3)'
-                  }}
-                >
-                  🚚 Check Out for Transit ({selectedItems.length})
-                </button>
-                <button
-                  onClick={() => handleBulkCheckout('band')}
-                  style={{
-                    padding: '14px 28px',
-                    background: 'linear-gradient(135deg, #868e96 0%, #495057 100%)',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '12px',
-                    cursor: 'pointer',
-                    fontSize: '16px',
-                    fontWeight: '700',
-                    boxShadow: '0 4px 12px rgba(134,142,150,0.3)'
-                  }}
-                >
-                  📦 Check Out to Band ({selectedItems.length})
-                </button>
-              </div>
-            </div>
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                marginBottom: '16px'
+              }}
+            >
+              {selectedItems.length === filteredItems.length ? `Deselect All ${filterValue}` : `Select All ${filterValue}`}
+            </button>
           )}
+        </div>
+      )}
 
-          {/* Item Count */}
-          <div style={{
-            padding: '12px 16px',
-            background: 'linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%)',
-            borderRadius: '12px',
-            marginBottom: '20px',
-            fontSize: '15px',
-            fontWeight: '600',
-            color: '#495057'
-          }}>
-            Total Items: {filteredItems.length}
-            {filterType !== 'all' && ` (filtered from ${gearItems.length})`}
+      {filterType === 'location' && (
+        <select
+          value={filterValue}
+          onChange={(e) => setFilterValue(e.target.value)}
+          style={styles.select}
+        >
+          <option value="">Select location...</option>
+          {locations.map(loc => (
+            <option key={loc.id} value={loc.id}>{loc.name}</option>
+          ))}
+        </select>
+      )}
+
+      {filterType === 'status' && (
+        <select
+          value={filterValue}
+          onChange={(e) => setFilterValue(e.target.value)}
+          style={styles.select}
+        >
+          <option value="">Select status...</option>
+          <option value="active">Active (At Location)</option>
+          <option value="in-transit">In Transit</option>
+          <option value="checked-out">Checked Out</option>
+        </select>
+      )}
+
+      {/* Bulk Actions */}
+      {selectedItems.length > 0 && (
+        <div style={styles.bulkActions}>
+          <div style={styles.bulkTitle}>
+            {selectedItems.length} Item(s) Selected
+          </div>
+          <div style={styles.bulkButtons}>
+            <button onClick={handleSelectAllFiltered} style={styles.bulkBtn}>
+              {selectedItems.length === filteredItems.length ? 'Deselect All' : 'Select All'}
+            </button>
+            <button onClick={() => handleBulkCheckout('transit')} style={styles.bulkBtn}>
+              Check Out (Transit)
+            </button>
+            <button onClick={() => handleBulkCheckout('band')} style={styles.bulkBtn}>
+              Check Out (Band)
+            </button>
+            <select
+              onChange={(e) => {
+                if (e.target.value) {
+                  handleBulkLocationChange(parseInt(e.target.value));
+                  e.target.value = '';
+                }
+              }}
+              style={{ ...styles.select, flex: 1, minWidth: '150px' }}
+            >
+              <option value="">Move to Location...</option>
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>{loc.name}</option>
+              ))}
+            </select>
           </div>
         </div>
-      </div>
+      )}
 
-      {/* Gear Items Display */}
-      <div className="no-print">
-        {Object.keys(groupedItems).length === 0 ? (
-          <div style={{
-            background: 'white',
-            borderRadius: '20px',
-            padding: '60px 40px',
-            textAlign: 'center',
-            boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '16px' }}>📦</div>
-            <p style={{ fontSize: '18px', color: '#999', margin: 0 }}>
-              No gear items found
-              {filterType !== 'all' && ' matching your filter'}
-            </p>
+      {/* Band Groups */}
+      {Object.entries(groupedItems).map(([bandName, items]) => (
+        <div key={bandName} style={styles.bandGroup}>
+          <div style={styles.bandHeader} onClick={() => toggleBand(bandName)}>
+            <h3 style={styles.bandName}>{bandName}</h3>
+            <div style={styles.bandCount}>{items.length} Items</div>
           </div>
-        ) : (
-          Object.entries(groupedItems).map(([bandName, items]) => (
-            <div key={bandName} style={{ marginBottom: '24px' }}>
-              <h3 style={{
-                padding: '16px 20px',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                color: 'white',
-                borderRadius: '16px',
-                marginBottom: '12px',
-                fontSize: '20px',
-                fontWeight: '700',
-                boxShadow: '0 4px 12px rgba(102,126,234,0.3)'
-              }}>
-                {bandName} ({items.length} item{items.length !== 1 ? 's' : ''})
-              </h3>
-              {items.map(item => renderGearItem(item))}
+          {expandedBands[bandName] && (
+            <div style={styles.bandItems}>
+              {items.map(item => {
+                const badge = getStatusBadge(item);
+                return (
+                  <div
+                    key={item.id}
+                    style={{
+                      ...styles.gearItem,
+                      background: selectedItems.includes(item.id) ? '#3a3a3a' : 'transparent'
+                    }}
+                  >
+                    <div style={styles.gearItemRow}>
+                      <input
+                        type="checkbox"
+                        checked={selectedItems.includes(item.id)}
+                        onChange={(e) => {
+                          e.stopPropagation();
+                          handleSelectItem(item.id);
+                        }}
+                        style={{ marginRight: '12px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0 }}
+                      />
+                      <div 
+                        style={{ ...styles.gearItemInfo, cursor: 'pointer' }}
+                        onClick={() => setSelectedItemDetail(item)}
+                      >
+                        <div style={styles.gearItemDesc}>{item.description}</div>
+                        <div style={styles.gearItemMeta}>
+                          #{String(item.display_id || '0000').padStart(4, '0')} • {getTimeAgo(item.lastUpdated)}
+                        </div>
+                      </div>
+                      <div style={styles.badge(badge)}>
+                        {badge.text}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-          ))
-        )}
-      </div>
+          )}
+        </div>
+      ))}
 
-      {/* Print View - Single Item Reprint */}
+      {/* Item Detail Overlay */}
+      {selectedItemDetail && (
+        <div style={styles.detailOverlay} onClick={() => setSelectedItemDetail(null)}>
+          <div style={styles.detailCard} onClick={(e) => e.stopPropagation()}>
+            <h2 style={styles.detailTitle}>Item Details</h2>
+            
+            <div style={styles.detailSection}>
+              <div style={styles.detailLabel}>Band</div>
+              <div style={styles.detailValue}>{selectedItemDetail.band_id}</div>
+            </div>
+
+            <div style={styles.detailSection}>
+              <div style={styles.detailLabel}>Description</div>
+              <div style={styles.detailValue}>{selectedItemDetail.description}</div>
+            </div>
+
+            <div style={styles.detailSection}>
+              <div style={styles.detailLabel}>Item ID</div>
+              <div style={styles.detailValue}>
+                #{String(selectedItemDetail.display_id || '0000').padStart(4, '0')}
+              </div>
+            </div>
+
+            <div style={styles.detailSection}>
+              <div style={styles.detailLabel}>Status</div>
+              <div style={styles.detailValue}>
+                {getStatusBadge(selectedItemDetail).text}
+              </div>
+            </div>
+
+            <div style={styles.detailSection}>
+              <div style={styles.detailLabel}>Last Updated</div>
+              <div style={styles.detailValue}>{getTimeAgo(selectedItemDetail.lastUpdated)}</div>
+            </div>
+
+            <div style={styles.detailButtons}>
+              <select
+                onChange={(e) => {
+                  if (e.target.value) {
+                    handleLocationUpdate(selectedItemDetail.id, parseInt(e.target.value));
+                  }
+                }}
+                style={{ ...styles.select, width: '100%', marginBottom: '10px' }}
+              >
+                <option value="">Change Location...</option>
+                {locations.map(loc => (
+                  <option key={loc.id} value={loc.id}>{loc.name}</option>
+                ))}
+              </select>
+
+              <button onClick={() => handleSelectItem(selectedItemDetail.id)} style={styles.detailBtn}>
+                {selectedItems.includes(selectedItemDetail.id) ? 'Deselect' : 'Select'}
+              </button>
+              <button onClick={() => setEditingItem(selectedItemDetail)} style={styles.detailBtn}>
+                Edit
+              </button>
+              <button onClick={() => handleReprint(selectedItemDetail)} style={styles.detailBtn}>
+                Print Label
+              </button>
+              <button onClick={() => setViewingHistory(selectedItemDetail.id)} style={styles.detailBtn}>
+                History
+              </button>
+              <button onClick={() => handleDelete(selectedItemDetail.id)} style={{ ...styles.detailBtn, background: '#ff6b6b' }}>
+                Delete
+              </button>
+              <button onClick={() => setSelectedItemDetail(null)} style={styles.closeBtn}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Print Styles */}
       {itemToPrint && (
         <div className="print-only">
-          <div className="print-label-page">
+          <div className="print-label-small">
             <img
               src={itemToPrint.qr_code}
               alt={`QR Code for ${itemToPrint.description}`}
@@ -1048,16 +830,16 @@ export default function GearList({ locationColors, currentUser }) {
                 margin: '0 auto 3mm auto'
               }}
             />
-           <div style={{
-             fontSize: '6.5mm',
-             fontWeight: 'bold',
-             textTransform: 'uppercase',
-             letterSpacing: '0.5mm',
-             marginBottom: '3mm',
-             textAlign: 'center'
-           }}>
-             {itemToPrint.band_id}
-           </div>
+            <div style={{
+              fontSize: '6.5mm',
+              fontWeight: 'bold',
+              textTransform: 'uppercase',
+              letterSpacing: '0.5mm',
+              marginBottom: '3mm',
+              textAlign: 'center'
+            }}>
+              {itemToPrint.band_id}
+            </div>
             <div style={{
               fontSize: '4.5mm',
               marginBottom: '2mm',
@@ -1076,86 +858,48 @@ export default function GearList({ locationColors, currentUser }) {
         </div>
       )}
 
-      {/* Print View - Selected Items */}
-      <div className="print-only">
-        {selectedItems.map(itemId => {
-          const item = gearItems.find(i => i.id === itemId);
-          if (!item) return null;
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          
+          .print-only, .print-only * {
+            visibility: visible;
+          }
+          
+          .print-only {
+            position: absolute;
+            left: 0;
+            top: 0;
+          }
 
-          return (
-            <div
-              key={item.id}
-              className={printLayout === 'sheet' ? 'print-label-small' : 'print-label-page'}
-            >
-              <img
-                src={item.qr_code}
-                alt={`QR Code for ${item.description}`}
-                style={{
-                  width: '50mm',
-                  height: '50mm',
-                  display: 'block',
-                  margin: '0 auto 3mm auto'
-                }}
-              />
-              <div style={{
-                fontSize: '6.5mm',
-                fontWeight: 'bold',
-                textTransform: 'uppercase',
-                letterSpacing: '0.5mm',
-                marginBottom: '3mm',
-                textAlign: 'center'
-              }}>
-                {item.band_id}
-              </div>
-              <div style={{
-                fontSize: '4.5mm',
-                marginBottom: '2mm',
-                textAlign: 'center'
-              }}>
-                {item.description}
-              </div>
-              <div style={{
-                fontSize: '3mm',
-                color: '#666',
-                textAlign: 'center'
-              }}>
-                ID: {item.id}
-              </div>
-            </div>
-          );
-        })}
-      </div>
+          .no-print {
+            display: none !important;
+          }
+          
+          @page {
+            size: A4;
+            margin: 8mm;
+          }
 
-     <style>{`
-  @media print {
-    body * { visibility: hidden; }
-    .print-only, .print-only * { visibility: visible; }
-    .print-only { position: absolute; left: 0; top: 0; }
-    .no-print { display: none !important; }
-    
-    .print-label-page {
-      display: block;
-      width: 74mm;
-      height: 105mm;
-      padding: 5mm;
-      box-sizing: border-box;
-      page-break-after: avoid;
-      page-break-inside: avoid;
-    }
-    
-    @page {
-      size: 74mm 105mm;
-      margin: 0;
-    }
-  }
-  
-  @media screen {
-    .print-only {
-      display: none !important;
-    }
-  }
-`}</style>
-      )}
+          .print-label-small {
+            display: inline-block;
+            width: 90mm;
+            padding: 5mm;
+            margin: 2mm;
+            box-sizing: border-box;
+            vertical-align: top;
+            page-break-inside: avoid;
+          }
+        }
+
+        @media screen {
+          .print-only {
+            display: none !important;
+          }
+        }
+      `}</style>
     </div>
   );
 }
