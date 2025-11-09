@@ -40,10 +40,11 @@ export default function ScanHistory({ gearId, loadScanHistory, getLocationInfo }
       <div style={{
         marginTop: '12px',
         padding: '20px',
-        background: '#f8f9fa',
+        background: '#1a1a1a',
         borderRadius: '10px',
         textAlign: 'center',
-        color: '#666'
+        color: '#888',
+        border: '2px solid #664400'
       }}>
         Loading history...
       </div>
@@ -55,10 +56,11 @@ export default function ScanHistory({ gearId, loadScanHistory, getLocationInfo }
       <div style={{
         marginTop: '12px',
         padding: '20px',
-        background: '#f8f9fa',
+        background: '#1a1a1a',
         borderRadius: '10px',
         textAlign: 'center',
-        color: '#666'
+        color: '#888',
+        border: '2px solid #664400'
       }}>
         No scan history available
       </div>
@@ -69,13 +71,13 @@ export default function ScanHistory({ gearId, loadScanHistory, getLocationInfo }
     <div style={{
       marginTop: '12px',
       padding: '16px',
-      background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)',
+      background: '#2d2d2d',
       borderRadius: '10px',
-      border: '1px solid #2196f3',
+      border: '2px solid #664400',
       maxHeight: '300px',
       overflowY: 'auto'
     }}>
-      <div style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '600', color: '#1565c0' }}>
+      <div style={{ marginBottom: '12px', fontSize: '14px', fontWeight: '700', color: '#ffa500', textTransform: 'uppercase', letterSpacing: '1px' }}>
         📜 Scan History ({history.length} events)
       </div>
       {history.map((scan, index) => (
@@ -84,21 +86,21 @@ export default function ScanHistory({ gearId, loadScanHistory, getLocationInfo }
           style={{
             padding: '12px',
             marginBottom: '8px',
-            background: 'white',
+            background: '#1a1a1a',
             borderRadius: '8px',
             fontSize: '13px',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            border: '1px solid #3a3a3a'
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px' }}>
-            <span style={{ fontWeight: '600', color: '#1976d2' }}>
+            <span style={{ fontWeight: '600', color: '#ffa500' }}>
               {getActionLabel(scan.action)}
             </span>
-            <span style={{ color: '#666', fontSize: '12px' }}>
+            <span style={{ color: '#888', fontSize: '12px' }}>
               {formatTimestamp(scan.timestamp)}
             </span>
           </div>
-          <div style={{ color: '#666', fontSize: '12px' }}>
+          <div style={{ color: '#e0e0e0', fontSize: '12px' }}>
             <div>📍 {getLocationInfo(scan.location_id).name}</div>
             <div>👤 {scan.user_email || 'Unknown user'}</div>
           </div>

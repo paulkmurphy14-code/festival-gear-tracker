@@ -178,17 +178,20 @@ export default function PreparedGate() {
   return (
     <div>
       <div style={{
-        background: 'white',
+        background: '#2d2d2d',
         borderRadius: '20px',
         padding: '24px',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.1)'
+        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+        border: '2px solid #664400'
       }}>
-        <h2 style={{ 
-          marginTop: 0, 
-          marginBottom: '24px', 
-          fontSize: '26px', 
-          color: '#1a1a1a',
-          fontWeight: '700'
+        <h2 style={{
+          marginTop: 0,
+          marginBottom: '24px',
+          fontSize: '26px',
+          color: '#ffa500',
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
         }}>
           Bulk Upload via CSV
         </h2>
@@ -197,12 +200,12 @@ export default function PreparedGate() {
           <div style={{
             padding: '16px',
             marginBottom: '20px',
-            background: message.includes('⚠️') ? 'linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%)' : 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-            color: 'white',
+            background: message.includes('⚠️') ? 'rgba(244, 67, 54, 0.2)' : 'rgba(76, 175, 80, 0.2)',
+            color: message.includes('⚠️') ? '#ff6b6b' : '#4caf50',
+            border: `2px solid ${message.includes('⚠️') ? '#ff6b6b' : '#4caf50'}`,
             borderRadius: '12px',
             fontSize: '15px',
-            fontWeight: '600',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)'
+            fontWeight: '600'
           }}>
             {message}
           </div>
@@ -212,7 +215,7 @@ export default function PreparedGate() {
           <div>
             {/* CSV Format Selection */}
             <div style={{ marginBottom: '24px' }}>
-              <label style={{ display: 'block', marginBottom: '12px', fontSize: '16px', fontWeight: '600', color: '#495057' }}>
+              <label style={{ display: 'block', marginBottom: '12px', fontSize: '16px', fontWeight: '600', color: '#ffa500' }}>
                 CSV Format
               </label>
               <div style={{ display: 'flex', gap: '12px', marginBottom: '12px' }}>
@@ -221,14 +224,16 @@ export default function PreparedGate() {
                   style={{
                     flex: 1,
                     padding: '12px 20px',
-                    background: csvFormat === 'basic' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                    color: csvFormat === 'basic' ? 'white' : '#495057',
-                    border: csvFormat === 'basic' ? 'none' : '2px solid #dee2e6',
+                    background: csvFormat === 'basic' ? '#ffa500' : '#1a1a1a',
+                    color: csvFormat === 'basic' ? '#1a1a1a' : '#e0e0e0',
+                    border: csvFormat === 'basic' ? 'none' : '2px solid #664400',
                     borderRadius: '12px',
                     cursor: 'pointer',
                     fontSize: '15px',
-                    fontWeight: '600',
-                    boxShadow: csvFormat === 'basic' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    boxShadow: csvFormat === 'basic' ? '0 3px 0 #664400' : 'none'
                   }}
                 >
                   Basic Format
@@ -238,14 +243,16 @@ export default function PreparedGate() {
                   style={{
                     flex: 1,
                     padding: '12px 20px',
-                    background: csvFormat === 'schedule' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                    color: csvFormat === 'schedule' ? 'white' : '#495057',
-                    border: csvFormat === 'schedule' ? 'none' : '2px solid #dee2e6',
+                    background: csvFormat === 'schedule' ? '#ffa500' : '#1a1a1a',
+                    color: csvFormat === 'schedule' ? '#1a1a1a' : '#e0e0e0',
+                    border: csvFormat === 'schedule' ? 'none' : '2px solid #664400',
                     borderRadius: '12px',
                     cursor: 'pointer',
                     fontSize: '15px',
-                    fontWeight: '600',
-                    boxShadow: csvFormat === 'schedule' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    boxShadow: csvFormat === 'schedule' ? '0 3px 0 #664400' : 'none'
                   }}
                 >
                   With Schedule
@@ -253,22 +260,23 @@ export default function PreparedGate() {
               </div>
               <div style={{
                 padding: '12px 16px',
-                background: '#f8f9fa',
+                background: '#1a1a1a',
                 borderRadius: '10px',
                 fontSize: '13px',
-                color: '#6c757d',
+                color: '#888',
                 fontFamily: 'monospace',
-                lineHeight: '1.6'
+                lineHeight: '1.6',
+                border: '1px solid #664400'
               }}>
                 {csvFormat === 'basic' ? (
                   <div>
-                    <strong>Format:</strong> Band Name, Item Description<br/>
-                    <span style={{ color: '#495057' }}>Example: The Rockers, Electric Guitar</span>
+                    <strong style={{ color: '#ffa500' }}>Format:</strong> Band Name, Item Description<br/>
+                    <span style={{ color: '#e0e0e0' }}>Example: The Rockers, Electric Guitar</span>
                   </div>
                 ) : (
                   <div>
-                    <strong>Format:</strong> Band, Item, Stage~DD-MM-YYYY~HH:MM<br/>
-                    <span style={{ color: '#495057' }}>Example: The Rockers, Guitar, Main Stage~05-10-2025~20:00</span>
+                    <strong style={{ color: '#ffa500' }}>Format:</strong> Band, Item, Stage~DD-MM-YYYY~HH:MM<br/>
+                    <span style={{ color: '#e0e0e0' }}>Example: The Rockers, Guitar, Main Stage~05-10-2025~20:00</span>
                   </div>
                 )}
               </div>
@@ -281,7 +289,7 @@ export default function PreparedGate() {
                 marginBottom: '10px',
                 fontSize: '16px',
                 fontWeight: '600',
-                color: '#495057'
+                color: '#ffa500'
               }}>
                 Optional: Set Initial Location for All Items
               </label>
@@ -293,9 +301,9 @@ export default function PreparedGate() {
                   padding: '12px',
                   fontSize: '16px',
                   borderRadius: '12px',
-                  border: '1px solid #dee2e6',
-                  backgroundColor: 'white',
-                  color: '#495057',
+                  border: '2px solid #664400',
+                  backgroundColor: '#1a1a1a',
+                  color: '#e0e0e0',
                   fontWeight: '500'
                 }}
               >
@@ -315,7 +323,7 @@ export default function PreparedGate() {
                 marginBottom: '10px',
                 fontSize: '16px',
                 fontWeight: '600',
-                color: '#495057'
+                color: '#ffa500'
               }}>
                 Select CSV File
               </label>
@@ -328,13 +336,14 @@ export default function PreparedGate() {
                   padding: '12px',
                   fontSize: '16px',
                   borderRadius: '12px',
-                  border: '2px dashed #dee2e6',
-                  backgroundColor: '#f8f9fa',
+                  border: '2px dashed #664400',
+                  backgroundColor: '#1a1a1a',
+                  color: '#e0e0e0',
                   cursor: 'pointer'
                 }}
               />
               {file && (
-                <div style={{ marginTop: '10px', padding: '10px', background: '#e3f2fd', borderRadius: '8px', fontSize: '14px', color: '#1976d2' }}>
+                <div style={{ marginTop: '10px', padding: '10px', background: 'rgba(76, 175, 80, 0.2)', borderRadius: '8px', fontSize: '14px', color: '#4caf50', border: '1px solid #4caf50' }}>
                   ✓ Selected: {file.name}
                 </div>
               )}
@@ -347,14 +356,16 @@ export default function PreparedGate() {
               style={{
                 width: '100%',
                 padding: '16px',
-                background: file ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#e9ecef',
-                color: file ? 'white' : '#adb5bd',
-                border: 'none',
+                background: file ? '#ffa500' : '#3a3a3a',
+                color: file ? '#1a1a1a' : '#666',
+                border: file ? 'none' : '2px solid #664400',
                 borderRadius: '12px',
                 fontSize: '18px',
                 fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
                 cursor: file ? 'pointer' : 'not-allowed',
-                boxShadow: file ? '0 4px 12px rgba(102,126,234,0.3)' : 'none',
+                boxShadow: file ? '0 3px 0 #664400' : 'none',
                 transition: 'all 0.2s ease'
               }}
             >
@@ -366,20 +377,20 @@ export default function PreparedGate() {
             {/* Success Message */}
             <div style={{
               padding: '20px',
-              background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
+              background: 'rgba(76, 175, 80, 0.2)',
               borderRadius: '16px',
               marginBottom: '24px',
-              color: 'white',
+              color: '#4caf50',
               fontSize: '16px',
               fontWeight: '600',
-              boxShadow: '0 4px 12px rgba(81,207,102,0.3)'
+              border: '2px solid #4caf50'
             }}>
               ✓ {importedItems.length} items imported successfully!
             </div>
 
             {/* Print Layout Selection */}
             <div style={{ marginBottom: '24px' }}>
-              <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '18px', color: '#1a1a1a', fontWeight: '700' }}>
+              <h3 style={{ marginTop: 0, marginBottom: '12px', fontSize: '18px', color: '#ffa500', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
                 Print Layout
               </h3>
               <div style={{ display: 'flex', gap: '10px' }}>
@@ -387,14 +398,16 @@ export default function PreparedGate() {
                   onClick={() => setPrintLayout('sheet')}
                   style={{
                     padding: '12px 24px',
-                    background: printLayout === 'sheet' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                    color: printLayout === 'sheet' ? 'white' : '#495057',
-                    border: 'none',
+                    background: printLayout === 'sheet' ? '#ffa500' : '#1a1a1a',
+                    color: printLayout === 'sheet' ? '#1a1a1a' : '#e0e0e0',
+                    border: printLayout === 'sheet' ? 'none' : '2px solid #664400',
                     borderRadius: '10px',
                     cursor: 'pointer',
                     fontSize: '15px',
-                    fontWeight: '600',
-                    boxShadow: printLayout === 'sheet' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    boxShadow: printLayout === 'sheet' ? '0 3px 0 #664400' : 'none'
                   }}
                 >
                   Multiple per Sheet
@@ -403,14 +416,16 @@ export default function PreparedGate() {
                   onClick={() => setPrintLayout('pages')}
                   style={{
                     padding: '12px 24px',
-                    background: printLayout === 'pages' ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : '#f8f9fa',
-                    color: printLayout === 'pages' ? 'white' : '#495057',
-                    border: 'none',
+                    background: printLayout === 'pages' ? '#ffa500' : '#1a1a1a',
+                    color: printLayout === 'pages' ? '#1a1a1a' : '#e0e0e0',
+                    border: printLayout === 'pages' ? 'none' : '2px solid #664400',
                     borderRadius: '10px',
                     cursor: 'pointer',
                     fontSize: '15px',
-                    fontWeight: '600',
-                    boxShadow: printLayout === 'pages' ? '0 2px 8px rgba(102,126,234,0.3)' : 'none'
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    boxShadow: printLayout === 'pages' ? '0 3px 0 #664400' : 'none'
                   }}
                 >
                   One per Page
@@ -425,14 +440,16 @@ export default function PreparedGate() {
                 style={{
                   flex: 1,
                   padding: '16px',
-                  background: 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)',
-                  color: 'white',
+                  background: '#4caf50',
+                  color: '#1a1a1a',
                   border: 'none',
                   borderRadius: '12px',
                   fontSize: '16px',
                   fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
                   cursor: 'pointer',
-                  boxShadow: '0 4px 12px rgba(81,207,102,0.3)'
+                  boxShadow: '0 3px 0 #2e7d32'
                 }}
               >
                 🖨️ Print Labels
@@ -442,12 +459,14 @@ export default function PreparedGate() {
                 style={{
                   flex: 1,
                   padding: '16px',
-                  background: '#f8f9fa',
-                  color: '#495057',
-                  border: '1px solid #dee2e6',
+                  background: '#2d2d2d',
+                  color: '#ffa500',
+                  border: '2px solid #ffa500',
                   borderRadius: '12px',
                   fontSize: '16px',
                   fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
                   cursor: 'pointer'
                 }}
               >
@@ -457,30 +476,30 @@ export default function PreparedGate() {
 
             {/* Preview */}
             <div className="no-print">
-              <h3 style={{ marginBottom: '12px', fontSize: '18px', color: '#1a1a1a', fontWeight: '700' }}>
+              <h3 style={{ marginBottom: '12px', fontSize: '18px', color: '#ffa500', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
                 Preview ({importedItems.length} labels)
               </h3>
               <div style={{
-                border: '2px dashed #dee2e6',
+                border: '2px dashed #664400',
                 padding: '20px',
                 borderRadius: '12px',
-                background: '#f8f9fa'
+                background: '#1a1a1a'
               }}>
                 {importedItems.slice(0, 3).map(item => (
                   <div key={item.id} style={{
                     padding: '12px',
                     marginBottom: '10px',
-                    background: 'white',
+                    background: '#2d2d2d',
                     borderRadius: '10px',
-                    border: '1px solid #dee2e6',
+                    border: '2px solid #664400',
                     fontSize: '15px',
-                    color: '#495057'
+                    color: '#e0e0e0'
                   }}>
-                    <strong>{item.band}</strong> - {item.description}
+                    <strong style={{ color: '#ffa500' }}>{item.band}</strong> - {item.description}
                   </div>
                 ))}
                 {importedItems.length > 3 && (
-                  <div style={{ textAlign: 'center', color: '#6c757d', fontStyle: 'italic', fontSize: '14px' }}>
+                  <div style={{ textAlign: 'center', color: '#888', fontStyle: 'italic', fontSize: '14px' }}>
                     ...and {importedItems.length - 3} more
                   </div>
                 )}
