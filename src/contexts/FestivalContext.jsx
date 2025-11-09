@@ -13,6 +13,7 @@ export function FestivalProvider({ children }) {
   const { currentUser } = useAuth();
   const [currentFestival, setCurrentFestival] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [needsSelection, setNeedsSelection] = useState(false);
 
   useEffect(() => {
     async function loadUserFestival() {
@@ -20,9 +21,45 @@ export function FestivalProvider({ children }) {
       try {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
 
-        if (userDoc.exists() && userDoc.data().festivalId) {
-          const festivalDoc = await getDoc(doc(db, 'festivals', userDoc.data().festivalId));
+        if (!userDoc.exists()) {
+          setLoading(false);
+          return;
+        }
 
+        const userData = userDoc.data();
+
+        // Check for selected festival in localStorage
+        const storedFestivalId = localStorage.getItem(`selectedFestival_${currentUser.uid}`);
+
+        let festivalIdToLoad = null;
+
+        // Support both old (single festival) and new (multiple festivals) schema
+        if (userData.festivals && Array.isArray(userData.festivals)) {
+          // New schema: array of {festivalId, role}
+          if (userData.festivals.length === 0) {
+            setLoading(false);
+            return;
+          }
+
+          if (userData.festivals.length === 1) {
+            // Auto-select if only one
+            festivalIdToLoad = userData.festivals[0].festivalId;
+          } else if (storedFestivalId && userData.festivals.some(f => f.festivalId === storedFestivalId)) {
+            // Use stored selection if valid
+            festivalIdToLoad = storedFestivalId;
+          } else {
+            // Need user to select
+            setNeedsSelection(true);
+            setLoading(false);
+            return;
+          }
+        } else if (userData.festivalId) {
+          // Old schema: single festivalId
+          festivalIdToLoad = userData.festivalId;
+        }
+
+        if (festivalIdToLoad) {
+          const festivalDoc = await getDoc(doc(db, 'festivals', festivalIdToLoad));
           if (festivalDoc.exists()) {
             setCurrentFestival({
               id: festivalDoc.id,
@@ -38,12 +75,30 @@ export function FestivalProvider({ children }) {
 
     if (!currentUser) {
       setCurrentFestival(null);
+      setNeedsSelection(false);
       setLoading(false);
       return;
     }
 
     loadUserFestival();
   }, [currentUser]);
+
+  const selectFestival = async (festivalId) => {
+    try {
+      const festivalDoc = await getDoc(doc(db, 'festivals', festivalId));
+      if (festivalDoc.exists()) {
+        setCurrentFestival({
+          id: festivalDoc.id,
+          ...festivalDoc.data()
+        });
+        // Store selection
+        localStorage.setItem(`selectedFestival_${currentUser.uid}`, festivalId);
+        setNeedsSelection(false);
+      }
+    } catch (error) {
+      console.error('Error selecting festival:', error);
+    }
+  };
 
  async function createFestival(formData) {
   try {
@@ -63,10 +118,14 @@ export function FestivalProvider({ children }) {
       licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
+      // Use new multi-festival schema
       await setDoc(doc(db, 'users', currentUser.uid), {
         email: currentUser.email,
-        festivalId: festivalRef.id,
-        role: 'owner'
+        festivals: [{
+          festivalId: festivalRef.id,
+          role: 'owner'
+        }],
+        createdAt: new Date()
       });
 
       setCurrentFestival({
@@ -84,6 +143,8 @@ export function FestivalProvider({ children }) {
         licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
       });
 
+      localStorage.setItem(`selectedFestival_${currentUser.uid}`, festivalRef.id);
+
       return festivalRef.id;
     } catch (error) {
       console.error('Error creating festival:', error);
@@ -94,7 +155,9 @@ export function FestivalProvider({ children }) {
   const value = {
     currentFestival,
     createFestival,
-    loading
+    selectFestival,
+    loading,
+    needsSelection
   };
 
   return (

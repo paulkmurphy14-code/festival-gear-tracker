@@ -63,18 +63,24 @@ export default function UserManagement() {
     }
 
     try {
-      // Check if user already exists
-      const q = query(collection(db, 'users'), where('email', '==', inviteEmail.trim()));
-      const existingUsers = await getDocs(q);
+      // Check if user already has an invitation for THIS festival
+      const q = query(
+        collection(db, 'invitations'),
+        where('email', '==', inviteEmail.trim()),
+        where('festivalId', '==', currentFestival.id),
+        where('status', '==', 'pending')
+      );
+      const existingInvitations = await getDocs(q);
 
-      if (!existingUsers.empty) {
-        setMessage('⚠️ User already invited or registered');
-        setTimeout(() => setMessage(''), 3000);
+      if (!existingInvitations.empty) {
+        setMessage('⚠️ This user already has a pending invitation for this festival');
+        setTimeout(() => setMessage(''), 5000);
         return;
       }
 
-      // Create invitation (user will complete signup)
+      // Create invitation (allows users to join multiple festivals)
       const invitationRef = doc(collection(db, 'invitations'));
+
       await setDoc(invitationRef, {
         email: inviteEmail.trim(),
         role: inviteRole,
@@ -82,19 +88,26 @@ export default function UserManagement() {
         festivalName: currentFestival.name,
         invitedBy: currentUser.uid,
         invitedAt: new Date(),
-        status: 'pending'
+        status: 'pending',
+        invitationId: invitationRef.id
       });
 
-      setMessage(`✅ Invitation sent to ${inviteEmail}`);
+      // Generate invitation link
+      const inviteLink = `${window.location.origin}?invite=${invitationRef.id}`;
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(inviteLink);
+
+      setMessage(`✅ Invitation created! Link copied to clipboard. Share it with ${inviteEmail}`);
       setInviteEmail('');
       setInviteRole('user');
-      setTimeout(() => setMessage(''), 3000);
+      setTimeout(() => setMessage(''), 5000);
 
-      // TODO: Send email invitation
-      console.log('TODO: Send email to', inviteEmail);
+      // Show the link in console for easy access
+      console.log('Invitation link:', inviteLink);
     } catch (error) {
       console.error('Error inviting user:', error);
-      setMessage('❌ Error sending invitation');
+      setMessage('❌ Error creating invitation');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -204,15 +217,16 @@ export default function UserManagement() {
   }
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ padding: '0' }}>
       <h2 style={{
         marginTop: 0,
         marginBottom: '24px',
-        fontSize: '26px',
+        fontSize: '16px',
         color: '#ffa500',
         fontWeight: '700',
         textTransform: 'uppercase',
-        letterSpacing: '1px'
+        letterSpacing: '1px',
+        textAlign: 'center'
       }}>
         User Management
       </h2>

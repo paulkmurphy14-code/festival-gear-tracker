@@ -156,7 +156,7 @@ export function getFirestoreDb(festivalId) {
        async add(data) {
          await addDoc(collection(db, `festivals/${festivalId}/scans`), data);
        },
-  
+
        where(field, operator, value) {
          return {
            async toArray() {
@@ -169,6 +169,50 @@ export function getFirestoreDb(festivalId) {
            }
          };
        }
-     }
+     },
+
+    messages: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/messages`), data);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/messages`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async update(id, data) {
+        await updateDoc(doc(db, `festivals/${festivalId}/messages`, String(id)), data);
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/messages`, String(id)));
+      }
+    },
+
+    message_reads: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/message_reads`), data);
+        return docRef.id;
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/message_reads`),
+              fbWhere(field, operator === '==' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/message_reads`, String(id)));
+      }
+    }
   };
 }

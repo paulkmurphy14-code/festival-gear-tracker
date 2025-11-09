@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 
-export default function Signup({ onSwitchToLogin }) {
+export default function Signup({ onSwitchToLogin, invitation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
@@ -35,6 +35,34 @@ export default function Signup({ onSwitchToLogin }) {
       justifyContent: 'center',
       padding: '20px'
     }}>
+      {/* Invitation Banner */}
+      {invitation && (
+        <div style={{
+          position: 'fixed',
+          top: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          background: '#2d2d2d',
+          border: '2px solid #ffa500',
+          borderRadius: '8px',
+          padding: '16px 24px',
+          maxWidth: '500px',
+          width: '90%',
+          zIndex: 1000,
+          boxShadow: '0 4px 12px rgba(255, 165, 0, 0.3)'
+        }}>
+          <div style={{ fontSize: '14px', color: '#ffa500', fontWeight: '700', marginBottom: '8px' }}>
+            📨 You've been invited!
+          </div>
+          <div style={{ fontSize: '13px', color: '#e0e0e0', marginBottom: '4px' }}>
+            Join <strong>{invitation.festivalName}</strong> as a <strong>{invitation.role}</strong>
+          </div>
+          <div style={{ fontSize: '12px', color: '#888' }}>
+            Create an account to accept this invitation
+          </div>
+        </div>
+      )}
+
       <div style={{
         background: '#2d2d2d',
         borderRadius: '20px',

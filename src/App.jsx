@@ -6,6 +6,8 @@ import Scanner from './components/Scanner';
 import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
 import UserManagement from './components/UserManagement';
+import Messages from './components/Messages';
+import FestivalSelector from './components/FestivalSelector';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
@@ -13,6 +15,8 @@ import Login from './components/Login';
 import Signup from './components/Signup';
 import { DatabaseProvider, useDatabase } from './contexts/DatabaseContext';
 import { useRole } from './hooks/useRole';
+import { db as firebaseDb } from './firebase';
+import { doc, getDoc, updateDoc, setDoc } from 'firebase/firestore';
 import './App.css';
 
 const GlobalStyles = () => (
@@ -72,15 +76,25 @@ const GlobalStyles = () => (
         box-shadow: 0 0 25px rgba(244, 67, 54, 0.5);
       }
     }
+
+    /* Pulse animation for urgent modal */
+    @keyframes urgentPulse {
+      0%, 100% {
+        box-shadow: 0 10px 40px rgba(244, 67, 54, 0.5);
+      }
+      50% {
+        box-shadow: 0 10px 60px rgba(244, 67, 54, 0.8);
+      }
+    }
   `}</style>
 );
 
 function AppContent() {
   const { currentUser, logout } = useAuth();
-  const { currentFestival, loading: festivalLoading } = useFestival();
+  const { currentFestival, loading: festivalLoading, needsSelection, selectFestival } = useFestival();
   const db = useDatabase();
   const { canManageUsers, canBulkUploadCSV, canManageLocations } = useRole();
-  
+
   const [showSignup, setShowSignup] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [scannedGear, setScannedGear] = useState(null);
@@ -89,6 +103,10 @@ function AppContent() {
   const [message, setMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0, missing: 0 });
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [urgentMessage, setUrgentMessage] = useState(null);
+  const [showUrgentModal, setShowUrgentModal] = useState(false);
+  const [invitation, setInvitation] = useState(null);
 
   const loadLocations = useCallback(async () => {
     if (!db) return;
@@ -120,10 +138,141 @@ function AppContent() {
     }
   }, [db]);
 
+  const loadUnreadCount = useCallback(async () => {
+    if (!db || !currentUser) return;
+
+    try {
+      // Get all messages
+      const allMessages = await db.messages.toArray();
+
+      // Get read messages for current user
+      const readMessages = await db.message_reads
+        .where('user_id', '==', currentUser.uid)
+        .toArray();
+
+      const readMessageIds = new Set(readMessages.map(r => r.message_id));
+
+      // Count unread
+      const unreadCount = allMessages.filter(
+        msg => !readMessageIds.has(msg.id)
+      ).length;
+
+      setUnreadMessagesCount(unreadCount);
+
+    } catch (error) {
+      console.error('Error loading unread count:', error);
+    }
+  }, [db, currentUser]);
+
+  // Check for urgent messages
+  const checkForUrgentMessages = useCallback(async () => {
+    if (!db || !currentUser) return;
+
+    try {
+      // Get all messages
+      const messages = await db.messages.toArray();
+
+      // Get read messages for current user
+      const readMessages = await db.message_reads
+        .where('user_id', '==', currentUser.uid)
+        .toArray();
+
+      const readIds = new Set(readMessages.map(r => r.message_id));
+
+      // Find unread urgent messages
+      const unreadUrgent = messages.filter(
+        msg => msg.category === 'urgent' && !readIds.has(msg.id)
+      );
+
+      // Sort by newest first
+      unreadUrgent.sort((a, b) => {
+        const aTime = a.created_at?.toMillis?.() || a.created_at?.getTime?.() || 0;
+        const bTime = b.created_at?.toMillis?.() || b.created_at?.getTime?.() || 0;
+        return bTime - aTime;
+      });
+
+      // Show first unread urgent if exists and modal not already showing
+      if (unreadUrgent.length > 0 && !showUrgentModal) {
+        console.log('🚨 Found urgent message, showing modal:', unreadUrgent[0]);
+        setUrgentMessage(unreadUrgent[0]);
+        setShowUrgentModal(true);
+      } else if (unreadUrgent.length === 0) {
+        console.log('No unread urgent messages');
+      }
+
+    } catch (error) {
+      console.error('Error checking urgent messages:', error);
+    }
+  }, [db, currentUser, showUrgentModal]);
+
+  // Dismiss urgent message
+  const handleDismissUrgent = async () => {
+    if (!urgentMessage || !currentUser) return;
+
+    try {
+      // Mark as read
+      await db.message_reads.add({
+        user_id: currentUser.uid,
+        message_id: urgentMessage.id,
+        read_at: new Date()
+      });
+
+      // Close modal
+      setShowUrgentModal(false);
+      setUrgentMessage(null);
+
+      // Update unread count
+      loadUnreadCount();
+
+      // Check for next urgent message after short delay
+      setTimeout(() => {
+        checkForUrgentMessages();
+      }, 500);
+
+    } catch (error) {
+      console.error('Error dismissing urgent message:', error);
+    }
+  };
+
+  // View all messages from urgent modal
+  const handleViewAllMessages = async () => {
+    // Mark current urgent as read
+    if (urgentMessage && currentUser) {
+      await db.message_reads.add({
+        user_id: currentUser.uid,
+        message_id: urgentMessage.id,
+        read_at: new Date()
+      });
+    }
+
+    // Close modal and go to messages page
+    setShowUrgentModal(false);
+    setUrgentMessage(null);
+    setActiveTab('messages');
+    loadUnreadCount();
+  };
+
+  // Format timestamp for urgent modal
+  const formatTime = (timestamp) => {
+    if (!timestamp) return '';
+    const date = timestamp?.toDate?.() || new Date(timestamp);
+    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  };
+
   useEffect(() => {
     loadLocations();
     loadStatusCounts();
-  }, [loadLocations, loadStatusCounts, refreshTrigger]);
+    loadUnreadCount();
+  }, [loadLocations, loadStatusCounts, loadUnreadCount, refreshTrigger]);
+
+  // Check for urgent messages on load and every 30 seconds
+  useEffect(() => {
+    checkForUrgentMessages();
+
+    const interval = setInterval(checkForUrgentMessages, 30000);
+
+    return () => clearInterval(interval);
+  }, [checkForUrgentMessages]);
 
   const handleScan = useCallback(async (qrData) => {
     if (qrData && qrData.startsWith('GEAR:')) {
@@ -224,8 +373,92 @@ function AppContent() {
     setRefreshTrigger(prev => prev + 1);
   };
 
+  // Check for invitation link on load
+  useEffect(() => {
+    const checkInvitation = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const inviteId = urlParams.get('invite');
+
+      if (inviteId) {
+        try {
+          const inviteDoc = await getDoc(doc(firebaseDb, 'invitations', inviteId));
+          if (inviteDoc.exists() && inviteDoc.data().status === 'pending') {
+            setInvitation({ id: inviteId, ...inviteDoc.data() });
+            // Store in localStorage in case page refreshes
+            localStorage.setItem('pendingInvitation', JSON.stringify({ id: inviteId, ...inviteDoc.data() }));
+          }
+        } catch (error) {
+          console.error('Error fetching invitation:', error);
+        }
+      } else {
+        // Check localStorage for pending invitation
+        const storedInvite = localStorage.getItem('pendingInvitation');
+        if (storedInvite) {
+          setInvitation(JSON.parse(storedInvite));
+        }
+      }
+    };
+
+    checkInvitation();
+  }, []);
+
+  // Handle invitation acceptance after user logs in/signs up
+  useEffect(() => {
+    const acceptInvitation = async () => {
+      if (!currentUser || !invitation) return;
+
+      try {
+        // Add user to the festival
+        const userDocRef = doc(firebaseDb, 'users', currentUser.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists()) {
+          // Update existing user to add new festival
+          await updateDoc(userDocRef, {
+            festivalId: invitation.festivalId,
+            role: invitation.role
+          });
+        } else {
+          // Create new user document
+          await setDoc(userDocRef, {
+            email: currentUser.email,
+            festivalId: invitation.festivalId,
+            role: invitation.role,
+            createdAt: new Date()
+          });
+        }
+
+        // Mark invitation as accepted
+        await updateDoc(doc(firebaseDb, 'invitations', invitation.id), {
+          status: 'accepted',
+          acceptedAt: new Date(),
+          acceptedBy: currentUser.uid
+        });
+
+        // Clear invitation
+        setInvitation(null);
+        localStorage.removeItem('pendingInvitation');
+
+        // Remove invite param from URL
+        window.history.replaceState({}, '', window.location.pathname);
+
+        // Refresh to load new festival
+        window.location.reload();
+
+      } catch (error) {
+        console.error('Error accepting invitation:', error);
+      }
+    };
+
+    acceptInvitation();
+  }, [currentUser, invitation]);
+
   if (!currentUser) {
-    return showSignup ? <Signup onToggle={() => setShowSignup(false)} /> : <Login onToggle={() => setShowSignup(true)} />;
+    return showSignup ? (
+      <Signup onSwitchToLogin={() => setShowSignup(false)} invitation={invitation} />
+    ) : (
+      <Login onSwitchToSignup={() => setShowSignup(true)} invitation={invitation} />
+    );
   }
 
   if (festivalLoading) {
@@ -234,6 +467,11 @@ function AppContent() {
         Loading festival data...
       </div>
     );
+  }
+
+  // Show festival selector if user has multiple festivals
+  if (needsSelection) {
+    return <FestivalSelector user={currentUser} onSelectFestival={selectFestival} />;
   }
 
   if (!currentFestival) {
@@ -345,6 +583,109 @@ function AppContent() {
       textTransform: 'uppercase',
       letterSpacing: '0.5px'
     },
+    notificationBadge: {
+      position: 'absolute',
+      top: '8px',
+      right: '8px',
+      background: '#f44336',
+      color: 'white',
+      borderRadius: '12px',
+      padding: '4px 8px',
+      fontSize: '11px',
+      fontWeight: '700',
+      minWidth: '20px',
+      textAlign: 'center',
+      boxShadow: '0 2px 6px rgba(244,67,54,0.4)'
+    },
+    urgentModalOverlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.85)',
+      zIndex: 2000,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    },
+    urgentModalCard: {
+      background: '#2d2d2d',
+      borderRadius: '12px',
+      padding: '24px',
+      maxWidth: '400px',
+      width: '100%',
+      border: '3px solid #f44336',
+      boxShadow: '0 10px 40px rgba(244, 67, 54, 0.5)',
+      animation: 'urgentPulse 2s ease-in-out infinite'
+    },
+    urgentModalHeader: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      marginBottom: '20px',
+      paddingBottom: '16px',
+      borderBottom: '2px solid #f44336'
+    },
+    urgentIcon: {
+      fontSize: '32px'
+    },
+    urgentTitle: {
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#ff6b6b',
+      textTransform: 'uppercase',
+      letterSpacing: '1.5px'
+    },
+    urgentModalContent: {
+      fontSize: '15px',
+      color: '#e0e0e0',
+      lineHeight: '1.6',
+      marginBottom: '20px',
+      whiteSpace: 'pre-wrap'
+    },
+    urgentModalFooter: {
+      marginBottom: '20px'
+    },
+    urgentModalMeta: {
+      fontSize: '12px',
+      color: '#888',
+      fontWeight: '600'
+    },
+    urgentModalButtons: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '10px'
+    },
+    urgentViewAllBtn: {
+      width: '100%',
+      padding: '14px',
+      background: '#f44336',
+      color: 'white',
+      border: 'none',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      transition: 'background 0.2s'
+    },
+    urgentDismissBtn: {
+      width: '100%',
+      padding: '14px',
+      background: '#2d2d2d',
+      color: '#ccc',
+      border: '2px solid #444',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      transition: 'all 0.2s'
+    },
     logoutButton: {
       width: '100%',
       padding: '12px',
@@ -394,6 +735,19 @@ function AppContent() {
         <div style={styles.header}>
           <h1 style={styles.headerTitle}>Festival Gear Tracker</h1>
           <p style={styles.headerTagline}>Organising Chaos Like a Pro</p>
+          <div style={{
+            fontSize: '14px',
+            color: '#ffa500',
+            fontWeight: '600',
+            marginTop: '8px',
+            padding: '8px 16px',
+            background: 'rgba(255, 165, 0, 0.1)',
+            borderRadius: '20px',
+            display: 'inline-block',
+            border: '1px solid rgba(255, 165, 0, 0.3)'
+          }}>
+            🎪 {currentFestival.name}
+          </div>
         </div>
 
         {/* Status Info Bar */}
@@ -470,6 +824,17 @@ function AppContent() {
                 <div style={styles.homeButtonDesc}>Performances</div>
               </div>
 
+              <div style={styles.homeButton} onClick={() => setActiveTab('messages')}>
+                <span style={styles.homeButtonIcon}>📨</span>
+                <div style={styles.homeButtonText}>Messages</div>
+                <div style={styles.homeButtonDesc}>Updates</div>
+                {unreadMessagesCount > 0 && (
+                  <div style={styles.notificationBadge}>
+                    {unreadMessagesCount}
+                  </div>
+                )}
+              </div>
+
               {canBulkUploadCSV && (
                 <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
                   <span style={styles.homeButtonIcon}>📦</span>
@@ -497,6 +862,30 @@ function AppContent() {
 
             <button onClick={logout} style={styles.logoutButton}>
               Logout
+            </button>
+
+            <button
+              onClick={() => {
+                // Clear selected festival to show selector
+                localStorage.removeItem(`selectedFestival_${currentUser.uid}`);
+                window.location.reload();
+              }}
+              style={{
+                width: '100%',
+                padding: '12px',
+                backgroundColor: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: '1px',
+                marginTop: '10px'
+              }}
+            >
+              🔄 Switch Festival
             </button>
           </div>
         )}
@@ -663,6 +1052,34 @@ function AppContent() {
           </>
         )}
 
+        {activeTab === 'messages' && (
+          <>
+            <Messages />
+            <button
+              onClick={() => {
+                setActiveTab('home');
+                loadUnreadCount(); // Refresh count when returning home
+              }}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </>
+        )}
+
         {activeTab === 'scanner' && (
           <>
             <Scanner onScan={handleScan} />
@@ -686,6 +1103,43 @@ function AppContent() {
               Back to Home
             </button>
           </>
+        )}
+
+        {/* Urgent Message Modal */}
+        {showUrgentModal && urgentMessage && (
+          <div style={styles.urgentModalOverlay}>
+            <div style={styles.urgentModalCard}>
+              <div style={styles.urgentModalHeader}>
+                <span style={styles.urgentIcon}>🚨</span>
+                <span style={styles.urgentTitle}>URGENT MESSAGE</span>
+              </div>
+
+              <div style={styles.urgentModalContent}>
+                {urgentMessage.content}
+              </div>
+
+              <div style={styles.urgentModalFooter}>
+                <div style={styles.urgentModalMeta}>
+                  {urgentMessage.author_name} • {formatTime(urgentMessage.created_at)}
+                </div>
+              </div>
+
+              <div style={styles.urgentModalButtons}>
+                <button
+                  onClick={handleViewAllMessages}
+                  style={styles.urgentViewAllBtn}
+                >
+                  View All Messages
+                </button>
+                <button
+                  onClick={handleDismissUrgent}
+                  style={styles.urgentDismissBtn}
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          </div>
         )}
 
         {activeTab === 'scanned' && scannedGear && (
