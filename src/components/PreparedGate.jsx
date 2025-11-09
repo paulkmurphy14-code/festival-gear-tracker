@@ -3,7 +3,7 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import { useRole } from '../hooks/useRole';
 import { generateQRCode } from '../utils/qrCode';
 
-export default function PreparedGate() {
+export default function PreparedGate({ onDataChange }) {
   const db = useDatabase();
   const { canBulkUploadCSV } = useRole();
   const [file, setFile] = useState(null);
@@ -119,6 +119,12 @@ export default function PreparedGate() {
         return;
       }
 
+      if (!selectedLocation) {
+        setMessage('⚠️ Initial location is required for all items');
+        setTimeout(() => setMessage(''), 3000);
+        return;
+      }
+
       const itemsToImport = [];
 
       for (const item of items) {
@@ -126,8 +132,12 @@ export default function PreparedGate() {
           band_id: item.band,
           description: item.description,
           qr_code: '',
-          current_location_id: selectedLocation ? parseInt(selectedLocation) : null,
+          current_location_id: selectedLocation || null,
           status: 'active',
+          missing_status: 'active',
+          missing_since: null,
+          missing_reported_by: null,
+          missing_last_location: null,
           created_at: new Date(),
           in_transit: false,
           checked_out: false,
@@ -160,6 +170,7 @@ export default function PreparedGate() {
       setImportedItems(itemsToImport);
       setMessage(`✓ Successfully imported ${itemsToImport.length} items!`);
       setTimeout(() => setMessage(''), 3000);
+      onDataChange?.();
     } catch (error) {
       console.error('Error parsing CSV:', error);
       setMessage('⚠️ Error parsing CSV file: ' + error.message);
@@ -311,11 +322,12 @@ export default function PreparedGate() {
                 fontWeight: '600',
                 color: '#ffa500'
               }}>
-                Optional: Set Initial Location for All Items
+                Initial Location for All Items *
               </label>
               <select
                 value={selectedLocation}
                 onChange={(e) => setSelectedLocation(e.target.value)}
+                required
                 style={{
                   width: '100%',
                   padding: '12px',
@@ -327,7 +339,7 @@ export default function PreparedGate() {
                   fontWeight: '500'
                 }}
               >
-                <option value="">No initial location (register only)</option>
+                <option value="">Select location... *</option>
                 {locations.map(loc => (
                   <option key={loc.id} value={loc.id}>
                     {loc.name}

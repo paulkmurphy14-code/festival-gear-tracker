@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { generateQRCode } from '../utils/qrCode';
 
-export default function RegisterGear() {
+export default function RegisterGear({ onDataChange }) {
   const db = useDatabase();
   const [bandName, setBandName] = useState('');
   const [items, setItems] = useState([{ description: '', initialLocation: '' }]);
@@ -54,6 +54,14 @@ export default function RegisterGear() {
       return;
     }
 
+    // Check if all items have a location
+    const itemsWithoutLocation = validItems.filter(item => !item.initialLocation);
+    if (itemsWithoutLocation.length > 0) {
+      setMessage('Initial location is required for all items');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
     setIsLoading(true);
     try {
       const registered = [];
@@ -63,8 +71,12 @@ export default function RegisterGear() {
           band_id: bandName.trim(),
           description: item.description.trim(),
           qr_code: '',
-          current_location_id: item.initialLocation ? parseInt(item.initialLocation) : null,
+          current_location_id: item.initialLocation || null,
           status: 'active',
+          missing_status: 'active',
+          missing_since: null,
+          missing_reported_by: null,
+          missing_last_location: null,
           created_at: new Date(),
           in_transit: false,
           checked_out: false,
@@ -88,6 +100,7 @@ export default function RegisterGear() {
       setRegisteredItems(registered);
       setMessage(`${registered.length} item(s) registered successfully`);
       setTimeout(() => setMessage(''), 3000);
+      onDataChange?.();
     } catch (error) {
       console.error('Error registering gear:', error);
       setMessage('Error registering items');
@@ -285,13 +298,14 @@ export default function RegisterGear() {
               </div>
 
               <div style={styles.formGroup}>
-                <label style={styles.label}>Initial Location (Optional)</label>
+                <label style={styles.label}>Initial Location *</label>
                 <select
                   value={item.initialLocation}
                   onChange={(e) => handleItemChange(index, 'initialLocation', e.target.value)}
                   style={styles.input}
+                  required
                 >
-                  <option value="">Select location...</option>
+                  <option value="">Select location... *</option>
                   {locations.map(loc => (
                     <option key={loc.id} value={loc.id}>{loc.name}</option>
                   ))}

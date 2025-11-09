@@ -504,7 +504,10 @@ function AppContent() {
         {/* Content Pages */}
         {activeTab === 'chaos' && (
           <>
-            <RegisterGear locationColors={locationColors} />
+            <RegisterGear
+              locationColors={locationColors}
+              onDataChange={() => setRefreshTrigger(prev => prev + 1)}
+            />
             <button
               onClick={() => setActiveTab('home')}
               style={{
@@ -529,7 +532,10 @@ function AppContent() {
 
         {activeTab === 'prepared' && canBulkUploadCSV && (
           <>
-            <PreparedGate locationColors={locationColors} />
+            <PreparedGate
+              locationColors={locationColors}
+              onDataChange={() => setRefreshTrigger(prev => prev + 1)}
+            />
             <button
               onClick={() => setActiveTab('home')}
               style={{
