@@ -24,24 +24,25 @@ export default function Login({ onSwitchToSignup }) {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: '#1a1a1a',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px'
     }}>
       <div style={{
-        background: 'white',
+        background: '#2d2d2d',
         borderRadius: '20px',
         padding: '40px',
         maxWidth: '400px',
         width: '100%',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+        border: '2px solid #664400'
       }}>
-        <h2 style={{ marginTop: 0, textAlign: 'center', color: '#1a1a1a' }}>
+        <h2 style={{ marginTop: 0, textAlign: 'center', color: '#ffa500', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
           Festival Gear Tracker
         </h2>
-        <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px' }}>
+        <p style={{ textAlign: 'center', color: '#888', marginBottom: '30px' }}>
           Log in to your account
         </p>
 
@@ -49,8 +50,9 @@ export default function Login({ onSwitchToSignup }) {
           <div style={{
             padding: '12px',
             marginBottom: '20px',
-            background: '#ffebee',
-            color: '#c62828',
+            background: 'rgba(244, 67, 54, 0.2)',
+            color: '#ff6b6b',
+            border: '2px solid #ff6b6b',
             borderRadius: '8px',
             fontSize: '14px'
           }}>
@@ -60,7 +62,7 @@ export default function Login({ onSwitchToSignup }) {
 
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
               Email
             </label>
             <input
@@ -73,14 +75,16 @@ export default function Login({ onSwitchToSignup }) {
                 padding: '12px',
                 fontSize: '16px',
                 borderRadius: '8px',
-                border: '1px solid #ddd',
+                border: '2px solid #664400',
+                backgroundColor: '#1a1a1a',
+                color: '#e0e0e0',
                 boxSizing: 'border-box'
               }}
             />
           </div>
 
           <div style={{ marginBottom: '24px' }}>
-            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+            <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
               Password
             </label>
             <input
@@ -93,7 +97,9 @@ export default function Login({ onSwitchToSignup }) {
                 padding: '12px',
                 fontSize: '16px',
                 borderRadius: '8px',
-                border: '1px solid #ddd',
+                border: '2px solid #664400',
+                backgroundColor: '#1a1a1a',
+                color: '#e0e0e0',
                 boxSizing: 'border-box'
               }}
             />
@@ -105,27 +111,30 @@ export default function Login({ onSwitchToSignup }) {
             style={{
               width: '100%',
               padding: '14px',
-              background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
+              background: loading ? '#3a3a3a' : '#ffa500',
+              color: loading ? '#666' : '#1a1a1a',
               border: 'none',
               borderRadius: '8px',
               fontSize: '16px',
               fontWeight: '700',
-              cursor: loading ? 'not-allowed' : 'pointer'
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              cursor: loading ? 'not-allowed' : 'pointer',
+              boxShadow: loading ? 'none' : '0 3px 0 #664400'
             }}
           >
             {loading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
 
-        <p style={{ textAlign: 'center', marginTop: '20px', color: '#666', fontSize: '14px' }}>
+        <p style={{ textAlign: 'center', marginTop: '20px', color: '#888', fontSize: '14px' }}>
           Don't have an account?{' '}
           <button
             onClick={onSwitchToSignup}
             style={{
               background: 'none',
               border: 'none',
-              color: '#667eea',
+              color: '#ffa500',
               fontWeight: '600',
               cursor: 'pointer',
               textDecoration: 'underline'

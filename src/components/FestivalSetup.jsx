@@ -36,24 +36,25 @@ export default function FestivalSetup() {
   return (
     <div style={{
       minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      background: '#1a1a1a',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       padding: '20px'
     }}>
       <div style={{
-        background: 'white',
+        background: '#2d2d2d',
         borderRadius: '20px',
         padding: '40px',
         maxWidth: '500px',
         width: '100%',
-        boxShadow: '0 10px 40px rgba(0,0,0,0.2)'
+        boxShadow: '0 10px 40px rgba(0,0,0,0.4)',
+        border: '2px solid #664400'
       }}>
-        <h2 style={{ marginTop: 0, textAlign: 'center', color: '#1a1a1a' }}>
+        <h2 style={{ marginTop: 0, textAlign: 'center', color: '#ffa500', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
           🎪 Welcome to Festival Gear Tracker
         </h2>
-        <p style={{ textAlign: 'center', color: '#666', marginBottom: '30px' }}>
+        <p style={{ textAlign: 'center', color: '#888', marginBottom: '30px' }}>
           Let's set up your festival
         </p>
 
@@ -61,8 +62,9 @@ export default function FestivalSetup() {
           <div style={{
             padding: '12px',
             marginBottom: '20px',
-            background: '#ffebee',
-            color: '#c62828',
+            background: 'rgba(244, 67, 54, 0.2)',
+            color: '#ff6b6b',
+            border: '2px solid #ff6b6b',
             borderRadius: '8px',
             fontSize: '14px'
           }}>
@@ -72,7 +74,7 @@ export default function FestivalSetup() {
 
        <form onSubmit={handleSubmit}>
   <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
       Festival Name *
     </label>
     <input
@@ -86,14 +88,16 @@ export default function FestivalSetup() {
         padding: '12px',
         fontSize: '16px',
         borderRadius: '8px',
-        border: '1px solid #ddd',
+        border: '2px solid #664400',
+        backgroundColor: '#1a1a1a',
+        color: '#e0e0e0',
         boxSizing: 'border-box'
       }}
     />
   </div>
 
   <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
       Your Name *
     </label>
     <input
@@ -107,14 +111,16 @@ export default function FestivalSetup() {
         padding: '12px',
         fontSize: '16px',
         borderRadius: '8px',
-        border: '1px solid #ddd',
+        border: '2px solid #664400',
+        backgroundColor: '#1a1a1a',
+        color: '#e0e0e0',
         boxSizing: 'border-box'
       }}
     />
   </div>
 
   <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
       Festival Location/Address *
     </label>
     <input
@@ -128,14 +134,16 @@ export default function FestivalSetup() {
         padding: '12px',
         fontSize: '16px',
         borderRadius: '8px',
-        border: '1px solid #ddd',
+        border: '2px solid #664400',
+        backgroundColor: '#1a1a1a',
+        color: '#e0e0e0',
         boxSizing: 'border-box'
       }}
     />
   </div>
 
   <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
       Contact Email *
     </label>
     <input
@@ -149,14 +157,16 @@ export default function FestivalSetup() {
         padding: '12px',
         fontSize: '16px',
         borderRadius: '8px',
-        border: '1px solid #ddd',
+        border: '2px solid #664400',
+        backgroundColor: '#1a1a1a',
+        color: '#e0e0e0',
         boxSizing: 'border-box'
       }}
     />
   </div>
 
   <div style={{ marginBottom: '20px' }}>
-    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+    <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
       Contact Phone
     </label>
     <input
@@ -169,7 +179,9 @@ export default function FestivalSetup() {
         padding: '12px',
         fontSize: '16px',
         borderRadius: '8px',
-        border: '1px solid #ddd',
+        border: '2px solid #664400',
+        backgroundColor: '#1a1a1a',
+        color: '#e0e0e0',
         boxSizing: 'border-box'
       }}
     />
@@ -177,7 +189,7 @@ export default function FestivalSetup() {
 
   <div style={{ display: 'flex', gap: '10px', marginBottom: '24px' }}>
     <div style={{ flex: 1 }}>
-      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
         Start Date
       </label>
       <input
@@ -189,13 +201,16 @@ export default function FestivalSetup() {
           padding: '12px',
           fontSize: '16px',
           borderRadius: '8px',
-          border: '1px solid #ddd',
-          boxSizing: 'border-box'
+          border: '2px solid #664400',
+          backgroundColor: '#1a1a1a',
+          color: '#e0e0e0',
+          boxSizing: 'border-box',
+          colorScheme: 'dark'
         }}
       />
     </div>
     <div style={{ flex: 1 }}>
-      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#495057' }}>
+      <label style={{ display: 'block', marginBottom: '8px', fontWeight: '600', color: '#ffa500' }}>
         End Date
       </label>
       <input
@@ -207,8 +222,11 @@ export default function FestivalSetup() {
           padding: '12px',
           fontSize: '16px',
           borderRadius: '8px',
-          border: '1px solid #ddd',
-          boxSizing: 'border-box'
+          border: '2px solid #664400',
+          backgroundColor: '#1a1a1a',
+          color: '#e0e0e0',
+          boxSizing: 'border-box',
+          colorScheme: 'dark'
         }}
       />
     </div>
@@ -220,13 +238,16 @@ export default function FestivalSetup() {
     style={{
       width: '100%',
       padding: '14px',
-      background: loading ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: 'white',
+      background: loading ? '#3a3a3a' : '#ffa500',
+      color: loading ? '#666' : '#1a1a1a',
       border: 'none',
       borderRadius: '8px',
       fontSize: '16px',
       fontWeight: '700',
-      cursor: loading ? 'not-allowed' : 'pointer'
+      textTransform: 'uppercase',
+      letterSpacing: '1px',
+      cursor: loading ? 'not-allowed' : 'pointer',
+      boxShadow: loading ? 'none' : '0 3px 0 #664400'
     }}
   >
     {loading ? 'Creating Festival...' : 'Create Festival'}
@@ -236,10 +257,11 @@ export default function FestivalSetup() {
         <div style={{
           marginTop: '30px',
           padding: '16px',
-          background: '#e3f2fd',
+          background: 'rgba(76, 175, 80, 0.2)',
           borderRadius: '8px',
           fontSize: '14px',
-          color: '#1976d2'
+          color: '#4caf50',
+          border: '2px solid #4caf50'
         }}>
           <strong>📝 Note:</strong> You'll get a 30-day free trial to test all features.
         </div>
