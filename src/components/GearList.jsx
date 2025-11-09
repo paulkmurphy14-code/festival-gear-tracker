@@ -158,7 +158,7 @@ export default function GearList({ locationColors, currentUser }) {
       console.error('Error with bulk checkout:', error);
       alert('Error checking out items');
     }
-  }, [selectedItems, gearItems, db, currentUser]);
+  }, [selectedItems, gearItems, db, currentUser, loadData]);
   
   const loadScanHistory = useCallback(async (gearId) => {
     try {
@@ -212,7 +212,7 @@ export default function GearList({ locationColors, currentUser }) {
       console.error('Error with bulk location change:', error);
       alert('Error moving items');
     }
-  }, [selectedItems, db, getLocationInfo, currentUser]);
+  }, [selectedItems, db, getLocationInfo, currentUser, loadData]);
 
   const handleReprint = (item) => {
     setItemToPrint(item);
