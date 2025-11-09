@@ -17,9 +17,11 @@ export default function GearList({ locationColors, currentUser }) {
   const [itemToPrint, setItemToPrint] = useState(null);
   const [expandedBands, setExpandedBands] = useState({});
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const loadData = useCallback(async () => {
     try {
+      setIsLoading(true);
       const items = await db.gear.toArray();
       const locs = await db.locations.toArray();
       const uniqueBands = [...new Set(items.map(item => item.band_id))].sort();
@@ -27,15 +29,28 @@ export default function GearList({ locationColors, currentUser }) {
       setGearItems(items);
       setLocations(locs);
       setBands(uniqueBands);
-      
-      // Start with all bands collapsed
-      const expanded = {};
-      uniqueBands.forEach(band => {
-        expanded[band] = false;
+
+      // Only initialize expanded state for NEW bands, preserve existing state
+      setExpandedBands(prev => {
+        const newExpanded = { ...prev };
+        uniqueBands.forEach(band => {
+          // Only add if this is a new band (not in prev state)
+          if (!(band in newExpanded)) {
+            newExpanded[band] = false;
+          }
+        });
+        // Remove bands that no longer exist
+        Object.keys(newExpanded).forEach(band => {
+          if (!uniqueBands.includes(band)) {
+            delete newExpanded[band];
+          }
+        });
+        return newExpanded;
       });
-      setExpandedBands(expanded);
     } catch (error) {
       console.error('Error loading data:', error);
+    } finally {
+      setIsLoading(false);
     }
   }, [db]);
 
@@ -58,7 +73,8 @@ export default function GearList({ locationColors, currentUser }) {
   };
 
   const getLocationInfo = useCallback((locationId) => {
-    const location = locations.find(loc => loc.id === locationId);
+    // Handle both string and number IDs with loose comparison
+    const location = locations.find(loc => loc.id == locationId);
     if (!location) return { name: 'Unknown', color: '#95a5a6' };
     return { name: location.name, color: location.color };
   }, [locations]);
@@ -79,8 +95,16 @@ export default function GearList({ locationColors, currentUser }) {
 
   const handleLocationUpdate = useCallback(async (itemId, newLocationId) => {
     try {
+      // Keep location ID as-is (don't convert to number, IDs are strings in Firestore)
+      const locationId = newLocationId;
+
+      // Get location name BEFORE state updates
+      const allLocations = await db.locations.toArray();
+      const selectedLocation = allLocations.find(loc => loc.id === locationId);
+      const locationName = selectedLocation ? selectedLocation.name : 'Unknown';
+
       await db.gear.update(itemId, {
-        current_location_id: newLocationId,
+        current_location_id: locationId,
         in_transit: false,
         checked_out: false,
         lastUpdated: new Date()
@@ -88,7 +112,7 @@ export default function GearList({ locationColors, currentUser }) {
 
       await db.scans.add({
         gear_id: itemId,
-        location_id: newLocationId,
+        location_id: locationId,
         timestamp: new Date(),
         synced: false,
         user_id: 'manual_edit',
@@ -96,8 +120,17 @@ export default function GearList({ locationColors, currentUser }) {
         action: 'manual_location_change'
       });
 
-      setSelectedItemDetail(null);
-      loadData();
+      // Reload data and update the detail view with fresh data
+      await loadData();
+
+      // Get the updated item to show in detail view
+      const updatedItem = await db.gear.get(itemId);
+      if (updatedItem) {
+        setSelectedItemDetail(updatedItem);
+      }
+
+      // Show success message with the location we fetched earlier
+      alert(`Location updated to: ${locationName}`);
     } catch (error) {
       console.error('Error updating location:', error);
       alert('Error updating location');
@@ -259,7 +292,7 @@ export default function GearList({ locationColors, currentUser }) {
     if (filterType === 'band' && filterValue) {
       filtered = filtered.filter(item => item.band_id === filterValue);
     } else if (filterType === 'location' && filterValue) {
-      filtered = filtered.filter(item => item.current_location_id === parseInt(filterValue));
+      filtered = filtered.filter(item => item.current_location_id == filterValue);
     } else if (filterType === 'status' && filterValue) {
       if (filterValue === 'active') {
         filtered = filtered.filter(item => !item.in_transit && !item.checked_out && item.current_location_id);
@@ -567,8 +600,33 @@ export default function GearList({ locationColors, currentUser }) {
             box-shadow: 0 0 20px rgba(244, 67, 54, 0.8);
           }
         }
+        @keyframes spin {
+          0% { transform: rotate(0deg); }
+          100% { transform: rotate(360deg); }
+        }
       `}</style>
 
+      {isLoading && gearItems.length === 0 ? (
+        <div style={{
+          padding: '60px 20px',
+          textAlign: 'center',
+          color: '#888'
+        }}>
+          <div style={{
+            width: '50px',
+            height: '50px',
+            border: '4px solid #664400',
+            borderTop: '4px solid #ffa500',
+            borderRadius: '50%',
+            margin: '0 auto 20px',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <div style={{ fontSize: '16px', fontWeight: '600', color: '#ffa500' }}>
+            Loading gear list...
+          </div>
+        </div>
+      ) : (
+        <>
       {/* Filters */}
       <div style={styles.filters}>
         <button
@@ -678,7 +736,7 @@ export default function GearList({ locationColors, currentUser }) {
             <select
               onChange={(e) => {
                 if (e.target.value) {
-                  handleBulkLocationChange(parseInt(e.target.value));
+                  handleBulkLocationChange(e.target.value);
                   e.target.value = '';
                 }
               }}
@@ -782,7 +840,7 @@ export default function GearList({ locationColors, currentUser }) {
               <select
                 onChange={(e) => {
                   if (e.target.value) {
-                    handleLocationUpdate(selectedItemDetail.id, parseInt(e.target.value));
+                    handleLocationUpdate(selectedItemDetail.id, e.target.value);
                   }
                 }}
                 style={{ ...styles.select, width: '100%', marginBottom: '10px' }}
@@ -900,6 +958,8 @@ export default function GearList({ locationColors, currentUser }) {
           }
         }
       `}</style>
+        </>
+      )}
     </div>
   );
 }
