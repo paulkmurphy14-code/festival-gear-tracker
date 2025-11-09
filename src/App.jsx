@@ -26,29 +26,29 @@ const GlobalStyles = () => (
       overflow-x: hidden;
       background-color: #1a1a1a;
     }
-    
+
     * {
       box-sizing: border-box;
     }
-    
+
     input, select, textarea {
       font-size: 16px !important;
       min-height: 44px;
       color: #e0e0e0 !important;
     }
-    
+
     label {
       color: #ffa500 !important;
       font-size: 14px;
       font-weight: 600;
     }
-    
+
     button {
       min-height: 48px;
       touch-action: manipulation;
       transition: all 0.2s ease;
     }
-    
+
     button:active {
       transform: scale(0.98);
     }
@@ -59,6 +59,18 @@ const GlobalStyles = () => (
       margin: 0 auto;
       padding: 20px;
       box-sizing: border-box;
+    }
+
+    /* Pulse animation for missing items */
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        box-shadow: 0 0 15px rgba(244, 67, 54, 0.3);
+      }
+      50% {
+        opacity: 0.85;
+        box-shadow: 0 0 25px rgba(244, 67, 54, 0.5);
+      }
     }
   `}</style>
 );
@@ -76,7 +88,7 @@ function AppContent() {
   const [locationColors, setLocationColors] = useState({});
   const [message, setMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0 });
+  const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0, missing: 0 });
 
   const loadLocations = useCallback(async () => {
     if (!db) return;
@@ -98,10 +110,11 @@ function AppContent() {
     if (!db) return;
     try {
       const allGear = await db.gear.toArray();
-      const active = allGear.filter(g => !g.in_transit && !g.checked_out && g.current_location_id).length;
+      const missing = allGear.filter(g => g.missing_status === 'missing').length;
+      const active = allGear.filter(g => !g.in_transit && !g.checked_out && g.current_location_id && g.missing_status !== 'missing').length;
       const transit = allGear.filter(g => g.in_transit).length;
       const checkedOut = allGear.filter(g => g.checked_out).length;
-      setStatusCounts({ active, transit, checkedOut });
+      setStatusCounts({ active, transit, checkedOut, missing });
     } catch (error) {
       console.error('Error loading status counts:', error);
     }
@@ -138,17 +151,27 @@ function AppContent() {
         lastUpdated: new Date()
       };
 
+      // Auto-resolve if missing
+      const wasMissing = scannedGear.missing_status === 'missing';
+      if (wasMissing) {
+        updateData.missing_status = 'active';
+        updateData.missing_since = null;
+        updateData.missing_reported_by = null;
+        updateData.missing_last_location = null;
+      }
+
       await db.gear.update(scannedGear.id, updateData);
 
       await db.scans.add({
         gear_id: scannedGear.id,
         location_id: locationId,
         scanned_at: new Date(),
-        action: 'check_in',
+        action: wasMissing ? 'missing_item_recovered' : 'check_in',
         user_email: currentUser?.email || 'unknown'
       });
 
-      setMessage('Item checked in successfully');
+      const locationName = locations.find(loc => loc.id === locationId)?.name || 'location';
+      setMessage(wasMissing ? `✓ Missing item found! ${scannedGear.description} checked in to ${locationName}` : 'Item checked in successfully');
       setTimeout(() => setMessage(''), 3000);
       setScannedGear(null);
       setActiveTab('home');
@@ -335,6 +358,31 @@ function AppContent() {
       marginTop: '20px',
       textTransform: 'uppercase',
       letterSpacing: '1px'
+    },
+    missingAlertBanner: {
+      padding: '16px',
+      marginBottom: '20px',
+      background: 'rgba(244, 67, 54, 0.2)',
+      border: '2px solid #f44336',
+      borderLeft: '4px solid #f44336',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      animation: 'pulse 2s ease-in-out infinite',
+      transition: 'all 0.2s',
+      textAlign: 'center'
+    },
+    missingAlertTitle: {
+      fontSize: '14px',
+      fontWeight: '700',
+      color: '#ff6b6b',
+      marginBottom: '8px',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    missingAlertItems: {
+      fontSize: '13px',
+      color: '#ccc',
+      marginBottom: '8px'
     }
   };
 
@@ -382,6 +430,21 @@ function AppContent() {
         {/* Home Page */}
         {activeTab === 'home' && (
           <div style={styles.homeContent}>
+            {/* Missing Items Alert Banner */}
+            {statusCounts.missing > 0 && (
+              <div
+                style={styles.missingAlertBanner}
+                onClick={() => setActiveTab('gear')}
+              >
+                <div style={styles.missingAlertTitle}>
+                  🚨 {statusCounts.missing} {statusCounts.missing === 1 ? 'ITEM' : 'ITEMS'} MISSING
+                </div>
+                <div style={styles.missingAlertItems}>
+                  Click to view missing items →
+                </div>
+              </div>
+            )}
+
             <div style={styles.homeButtons}>
               <div style={styles.homeButton} onClick={() => setActiveTab('scanner')}>
                 <span style={styles.homeButtonIcon}>📷</span>
@@ -516,7 +579,12 @@ function AppContent() {
 
         {activeTab === 'gear' && (
           <>
-            <GearList key={refreshTrigger} locationColors={locationColors} currentUser={currentUser} />
+            <GearList
+              key={refreshTrigger}
+              locationColors={locationColors}
+              currentUser={currentUser}
+              onDataChange={() => setRefreshTrigger(prev => prev + 1)}
+            />
             <button
               onClick={() => setActiveTab('home')}
               style={{

@@ -4,7 +4,7 @@ import { useRole } from '../hooks/useRole';
 import EditGear from './EditGear';
 import ScanHistory from './ScanHistory';
 
-export default function GearList({ locationColors, currentUser }) {
+export default function GearList({ locationColors, currentUser, onDataChange }) {
   const db = useDatabase();
   const { canDeleteGear } = useRole();
   const [gearItems, setGearItems] = useState([]);
@@ -95,6 +95,91 @@ export default function GearList({ locationColors, currentUser }) {
     }
   };
 
+  const handleReportMissing = async (item) => {
+    const confirmed = window.confirm(
+      `Are you sure ${item.description} is missing?\n\nThis will alert all users to help find it.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await db.gear.update(item.id, {
+        missing_status: 'missing',
+        missing_since: new Date(),
+        missing_reported_by: currentUser?.email || 'Unknown',
+        missing_last_location: item.current_location_id,
+        lastUpdated: new Date()
+      });
+
+      await db.scans.add({
+        gear_id: item.id,
+        location_id: item.current_location_id,
+        timestamp: new Date(),
+        synced: false,
+        user_id: 'missing_report',
+        user_email: currentUser?.email || 'Unknown',
+        action: 'reported_missing'
+      });
+
+      alert(`✓ ${item.description} marked as missing. Alert sent to all users.`);
+      setSelectedItemDetail(null);
+      loadData();
+      onDataChange?.();
+    } catch (error) {
+      console.error('Error reporting missing:', error);
+      alert('Error reporting item as missing');
+    }
+  };
+
+  const handleFoundIt = async (item) => {
+    // Show location picker using window.prompt (simple version)
+    const locationOptions = locations.map((loc, idx) => `${idx + 1}. ${loc.name}`).join('\n');
+    const choice = window.prompt(
+      `Where did you find ${item.description}?\n\n${locationOptions}\n\nEnter the number:`
+    );
+
+    if (!choice) return;
+
+    const locationIndex = parseInt(choice) - 1;
+    if (locationIndex < 0 || locationIndex >= locations.length) {
+      alert('Invalid selection');
+      return;
+    }
+
+    const selectedLocation = locations[locationIndex];
+
+    try {
+      await db.gear.update(item.id, {
+        current_location_id: selectedLocation.id,
+        missing_status: 'active',
+        missing_since: null,
+        missing_reported_by: null,
+        missing_last_location: null,
+        in_transit: false,
+        checked_out: false,
+        lastUpdated: new Date()
+      });
+
+      await db.scans.add({
+        gear_id: item.id,
+        location_id: selectedLocation.id,
+        timestamp: new Date(),
+        synced: false,
+        user_id: 'found_missing',
+        user_email: currentUser?.email || 'Unknown',
+        action: 'found_missing_item'
+      });
+
+      alert(`✓ ${item.description} found! Checked in to ${selectedLocation.name}`);
+      setSelectedItemDetail(null);
+      loadData();
+      onDataChange?.();
+    } catch (error) {
+      console.error('Error marking found:', error);
+      alert('Error marking item as found');
+    }
+  };
+
   const handleLocationUpdate = useCallback(async (itemId, newLocationId) => {
     try {
       // Keep location ID as-is (don't convert to number, IDs are strings in Firestore)
@@ -105,12 +190,26 @@ export default function GearList({ locationColors, currentUser }) {
       const selectedLocation = allLocations.find(loc => loc.id === locationId);
       const locationName = selectedLocation ? selectedLocation.name : 'Unknown';
 
-      await db.gear.update(itemId, {
+      // Get current item to check if missing
+      const item = await db.gear.get(itemId);
+      const wasMissing = item?.missing_status === 'missing';
+
+      const updateData = {
         current_location_id: locationId,
         in_transit: false,
         checked_out: false,
         lastUpdated: new Date()
-      });
+      };
+
+      // Auto-resolve if missing
+      if (wasMissing) {
+        updateData.missing_status = 'active';
+        updateData.missing_since = null;
+        updateData.missing_reported_by = null;
+        updateData.missing_last_location = null;
+      }
+
+      await db.gear.update(itemId, updateData);
 
       await db.scans.add({
         gear_id: itemId,
@@ -119,7 +218,7 @@ export default function GearList({ locationColors, currentUser }) {
         synced: false,
         user_id: 'manual_edit',
         user_email: currentUser?.email || 'Unknown user',
-        action: 'manual_location_change'
+        action: wasMissing ? 'missing_item_recovered' : 'manual_location_change'
       });
 
       // Reload data and update the detail view with fresh data
@@ -132,7 +231,8 @@ export default function GearList({ locationColors, currentUser }) {
       }
 
       // Show success message with the location we fetched earlier
-      alert(`Location updated to: ${locationName}`);
+      alert(wasMissing ? `✓ Missing item found! Checked in to ${locationName}` : `Location updated to: ${locationName}`);
+      onDataChange?.();
     } catch (error) {
       console.error('Error updating location:', error);
       alert('Error updating location');
@@ -297,7 +397,9 @@ export default function GearList({ locationColors, currentUser }) {
       filtered = filtered.filter(item => item.current_location_id == filterValue);
     } else if (filterType === 'status' && filterValue) {
       if (filterValue === 'active') {
-        filtered = filtered.filter(item => !item.in_transit && !item.checked_out && item.current_location_id);
+        filtered = filtered.filter(item => !item.in_transit && !item.checked_out && item.current_location_id && item.missing_status !== 'missing');
+      } else if (filterValue === 'missing') {
+        filtered = filtered.filter(item => item.missing_status === 'missing');
       } else if (filterValue === 'in-transit') {
         filtered = filtered.filter(item => item.in_transit);
       } else if (filterValue === 'checked-out') {
@@ -331,7 +433,10 @@ export default function GearList({ locationColors, currentUser }) {
   };
 
   const getStatusBadge = (item) => {
-    if (item.in_transit) {
+    // Priority order: Missing > Transit > Checked Out > Active
+    if (item.missing_status === 'missing') {
+      return { text: 'MISSING ⚠️', color: '#ff9800', bg: 'rgba(255, 152, 0, 0.2)', border: '#f57c00', pulse: true };
+    } else if (item.in_transit) {
       return { text: 'IN TRANSIT', color: '#ff6b6b', bg: 'rgba(244, 67, 54, 0.2)', border: '#f44336', pulse: true };
     } else if (item.checked_out) {
       return { text: 'CHECKED OUT', color: '#888', bg: 'rgba(120, 120, 120, 0.15)', border: '#666', pulse: false };
@@ -629,6 +734,35 @@ export default function GearList({ locationColors, currentUser }) {
         </div>
       ) : (
         <>
+      {/* Missing Items Alert Banner */}
+      {gearItems.filter(g => g.missing_status === 'missing').length > 0 && (
+        <div
+          style={{
+            padding: '16px',
+            marginBottom: '16px',
+            background: 'rgba(244, 67, 54, 0.2)',
+            border: '2px solid #f44336',
+            borderLeft: '4px solid #f44336',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            animation: 'pulse 2s ease-in-out infinite',
+            transition: 'all 0.2s',
+            fontSize: '14px',
+            fontWeight: '700',
+            color: '#ff6b6b',
+            textAlign: 'center',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}
+          onClick={() => {
+            setFilterType('status');
+            setFilterValue('missing');
+          }}
+        >
+          🚨 {gearItems.filter(g => g.missing_status === 'missing').length} ITEMS MISSING - Click to filter
+        </div>
+      )}
+
       {/* Filters */}
       <div style={styles.filters}>
         <button
@@ -714,6 +848,7 @@ export default function GearList({ locationColors, currentUser }) {
         >
           <option value="">Select status...</option>
           <option value="active">Active (At Location)</option>
+          <option value="missing">Missing ⚠️</option>
           <option value="in-transit">In Transit</option>
           <option value="checked-out">Checked Out</option>
         </select>
@@ -838,6 +973,34 @@ export default function GearList({ locationColors, currentUser }) {
               <div style={styles.detailValue}>{getTimeAgo(selectedItemDetail.lastUpdated)}</div>
             </div>
 
+            {/* Missing Info */}
+            {selectedItemDetail.missing_status === 'missing' && (
+              <>
+                <div style={styles.detailSection}>
+                  <div style={styles.detailLabel}>Missing Since</div>
+                  <div style={styles.detailValue}>
+                    {getTimeAgo(selectedItemDetail.missing_since)}
+                  </div>
+                </div>
+
+                <div style={styles.detailSection}>
+                  <div style={styles.detailLabel}>Last Seen</div>
+                  <div style={styles.detailValue}>
+                    {selectedItemDetail.missing_last_location
+                      ? getLocationInfo(selectedItemDetail.missing_last_location).name
+                      : 'Unknown'}
+                  </div>
+                </div>
+
+                <div style={styles.detailSection}>
+                  <div style={styles.detailLabel}>Reported By</div>
+                  <div style={styles.detailValue}>
+                    {selectedItemDetail.missing_reported_by || 'Unknown'}
+                  </div>
+                </div>
+              </>
+            )}
+
             <div style={styles.detailButtons}>
               <select
                 onChange={(e) => {
@@ -870,6 +1033,50 @@ export default function GearList({ locationColors, currentUser }) {
                   Delete
                 </button>
               )}
+
+              {/* Missing Item Actions */}
+              {selectedItemDetail.missing_status === 'missing' ? (
+                <button
+                  onClick={() => handleFoundIt(selectedItemDetail)}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    background: '#4caf50',
+                    color: '#1a1a1a',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    marginTop: '10px'
+                  }}
+                >
+                  ✓ I Found It - Select Location
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleReportMissing(selectedItemDetail)}
+                  style={{
+                    width: '100%',
+                    padding: '16px',
+                    background: '#2d2d2d',
+                    color: '#ff9800',
+                    border: '2px solid #ff9800',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: '700',
+                    textTransform: 'uppercase',
+                    letterSpacing: '1px',
+                    marginTop: '10px'
+                  }}
+                >
+                  ⚠️ Report Missing
+                </button>
+              )}
+
               <button onClick={() => setSelectedItemDetail(null)} style={styles.closeBtn}>
                 Close
               </button>
