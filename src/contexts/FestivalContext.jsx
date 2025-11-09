@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 const FestivalContext = createContext();
@@ -118,15 +118,48 @@ export function FestivalProvider({ children }) {
       licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
-      // Use new multi-festival schema
-      await setDoc(doc(db, 'users', currentUser.uid), {
-        email: currentUser.email,
-        festivals: [{
+      // Add festival to user's festivals array
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        // User exists - add new festival to their array
+        const userData = userDoc.data();
+        let festivals = [];
+
+        // Get existing festivals or migrate from old schema
+        if (userData.festivals && Array.isArray(userData.festivals)) {
+          festivals = [...userData.festivals];
+        } else if (userData.festivalId) {
+          // Migrate old schema
+          festivals = [{
+            festivalId: userData.festivalId,
+            role: userData.role || 'user'
+          }];
+        }
+
+        // Add new festival as owner
+        festivals.push({
           festivalId: festivalRef.id,
           role: 'owner'
-        }],
-        createdAt: new Date()
-      });
+        });
+
+        await updateDoc(userDocRef, {
+          festivals: festivals,
+          festivalId: null,  // Remove old schema
+          role: null         // Remove old schema
+        });
+      } else {
+        // New user - create with new schema
+        await setDoc(userDocRef, {
+          email: currentUser.email,
+          festivals: [{
+            festivalId: festivalRef.id,
+            role: 'owner'
+          }],
+          createdAt: new Date()
+        });
+      }
 
       setCurrentFestival({
         id: festivalRef.id,

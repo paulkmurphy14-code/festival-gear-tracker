@@ -414,16 +414,48 @@ function AppContent() {
 
         if (userDoc.exists()) {
           // Update existing user to add new festival
+          const userData = userDoc.data();
+          let festivals = [];
+
+          // Get existing festivals array or migrate from old schema
+          if (userData.festivals && Array.isArray(userData.festivals)) {
+            festivals = [...userData.festivals];
+          } else if (userData.festivalId) {
+            // Migrate old schema to new
+            festivals = [{
+              festivalId: userData.festivalId,
+              role: userData.role || 'user'
+            }];
+          }
+
+          // Check if user is already in this festival
+          const existingIndex = festivals.findIndex(f => f.festivalId === invitation.festivalId);
+
+          if (existingIndex >= 0) {
+            // Update role if already in festival
+            festivals[existingIndex].role = invitation.role;
+          } else {
+            // Add new festival
+            festivals.push({
+              festivalId: invitation.festivalId,
+              role: invitation.role
+            });
+          }
+
+          // Update with new schema and remove old fields
           await updateDoc(userDocRef, {
-            festivalId: invitation.festivalId,
-            role: invitation.role
+            festivals: festivals,
+            festivalId: null,  // Remove old schema field
+            role: null         // Remove old schema field
           });
         } else {
-          // Create new user document
+          // Create new user document with new schema
           await setDoc(userDocRef, {
             email: currentUser.email,
-            festivalId: invitation.festivalId,
-            role: invitation.role,
+            festivals: [{
+              festivalId: invitation.festivalId,
+              role: invitation.role
+            }],
             createdAt: new Date()
           });
         }
