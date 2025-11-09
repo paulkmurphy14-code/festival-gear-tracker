@@ -5,12 +5,14 @@ import GearList from './components/GearList';
 import Scanner from './components/Scanner';
 import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
+import UserManagement from './components/UserManagement';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
 import Login from './components/Login';
 import Signup from './components/Signup';
 import { DatabaseProvider, useDatabase } from './contexts/DatabaseContext';
+import { useRole } from './hooks/useRole';
 import './App.css';
 
 const GlobalStyles = () => (
@@ -65,6 +67,7 @@ function AppContent() {
   const { currentUser, logout } = useAuth();
   const { currentFestival, loading: festivalLoading } = useFestival();
   const db = useDatabase();
+  const { canManageUsers, canBulkUploadCSV, canManageLocations } = useRole();
   
   const [showSignup, setShowSignup] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
@@ -404,17 +407,29 @@ function AppContent() {
                 <div style={styles.homeButtonDesc}>Performances</div>
               </div>
 
-              <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
-                <span style={styles.homeButtonIcon}>📦</span>
-                <div style={styles.homeButtonText}>Bulk Upload</div>
-                <div style={styles.homeButtonDesc}>CSV Import</div>
-              </div>
+              {canBulkUploadCSV && (
+                <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
+                  <span style={styles.homeButtonIcon}>📦</span>
+                  <div style={styles.homeButtonText}>Bulk Upload</div>
+                  <div style={styles.homeButtonDesc}>CSV Import</div>
+                </div>
+              )}
 
-              <div style={styles.homeButton} onClick={() => setActiveTab('locations')}>
-                <span style={styles.homeButtonIcon}>📍</span>
-                <div style={styles.homeButtonText}>Locations</div>
-                <div style={styles.homeButtonDesc}>Manage</div>
-              </div>
+              {canManageLocations && (
+                <div style={styles.homeButton} onClick={() => setActiveTab('locations')}>
+                  <span style={styles.homeButtonIcon}>📍</span>
+                  <div style={styles.homeButtonText}>Locations</div>
+                  <div style={styles.homeButtonDesc}>Manage</div>
+                </div>
+              )}
+
+              {canManageUsers && (
+                <div style={styles.homeButton} onClick={() => setActiveTab('users')}>
+                  <span style={styles.homeButtonIcon}>👥</span>
+                  <div style={styles.homeButtonText}>Users</div>
+                  <div style={styles.homeButtonDesc}>Manage Team</div>
+                </div>
+              )}
             </div>
 
             <button onClick={logout} style={styles.logoutButton}>
@@ -449,7 +464,7 @@ function AppContent() {
           </>
         )}
 
-        {activeTab === 'prepared' && (
+        {activeTab === 'prepared' && canBulkUploadCSV && (
           <>
             <PreparedGate locationColors={locationColors} />
             <button
@@ -524,9 +539,34 @@ function AppContent() {
           </>
         )}
 
-        {activeTab === 'locations' && (
+        {activeTab === 'locations' && canManageLocations && (
           <>
             <LocationManager onUpdate={handleLocationsUpdate} />
+            <button
+              onClick={() => setActiveTab('home')}
+              style={{
+                marginTop: '20px',
+                width: '100%',
+                padding: '16px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '700',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Back to Home
+            </button>
+          </>
+        )}
+
+        {activeTab === 'users' && (
+          <>
+            <UserManagement />
             <button
               onClick={() => setActiveTab('home')}
               style={{

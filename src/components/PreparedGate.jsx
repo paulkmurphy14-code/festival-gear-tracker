@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
+import { useRole } from '../hooks/useRole';
 import { generateQRCode } from '../utils/qrCode';
 
 export default function PreparedGate() {
   const db = useDatabase();
+  const { canBulkUploadCSV } = useRole();
   const [file, setFile] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState('');
   const [importedItems, setImportedItems] = useState([]);
@@ -174,6 +176,24 @@ export default function PreparedGate() {
     setFile(null);
     setSelectedLocation('');
   };
+
+  if (!canBulkUploadCSV) {
+    return (
+      <div style={{
+        padding: '40px 20px',
+        textAlign: 'center',
+        color: '#888'
+      }}>
+        <div style={{ fontSize: '48px', marginBottom: '16px' }}>🔒</div>
+        <div style={{ fontSize: '18px', fontWeight: '600', color: '#ffa500' }}>
+          Access Denied
+        </div>
+        <div style={{ fontSize: '14px', marginTop: '8px' }}>
+          You don't have permission to upload CSV files.
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>

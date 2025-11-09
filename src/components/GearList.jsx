@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
+import { useRole } from '../hooks/useRole';
 import EditGear from './EditGear';
 import ScanHistory from './ScanHistory';
 
 export default function GearList({ locationColors, currentUser }) {
   const db = useDatabase();
+  const { canDeleteGear } = useRole();
   const [gearItems, setGearItems] = useState([]);
   const [locations, setLocations] = useState([]);
   const [bands, setBands] = useState([]);
@@ -863,9 +865,11 @@ export default function GearList({ locationColors, currentUser }) {
               <button onClick={() => setViewingHistory(selectedItemDetail.id)} style={styles.detailBtn}>
                 History
               </button>
-              <button onClick={() => handleDelete(selectedItemDetail.id)} style={{ ...styles.detailBtn, background: '#ff6b6b' }}>
-                Delete
-              </button>
+              {canDeleteGear && (
+                <button onClick={() => handleDelete(selectedItemDetail.id)} style={{ ...styles.detailBtn, background: '#ff6b6b' }}>
+                  Delete
+                </button>
+              )}
               <button onClick={() => setSelectedItemDetail(null)} style={styles.closeBtn}>
                 Close
               </button>
