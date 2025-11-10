@@ -248,7 +248,7 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       console.error('Error updating location:', error);
       alert('Error updating location');
     }
-  }, [db, currentUser, loadData]);
+  }, [db, currentUser, loadData, onDataChange]);
 
   const handleBulkCheckout = useCallback(async (type) => {
     if (selectedItems.length === 0) return;
@@ -299,12 +299,13 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
 
       setSelectedItems([]);
       loadData();
+      onDataChange?.();
       alert(`${selectedItems.length} item(s) checked out successfully`);
     } catch (error) {
       console.error('Error with bulk checkout:', error);
       alert('Error checking out items');
     }
-  }, [selectedItems, gearItems, db, currentUser, loadData]);
+  }, [selectedItems, gearItems, db, currentUser, loadData, onDataChange]);
   
   const loadScanHistory = useCallback(async (gearId) => {
     try {
@@ -353,12 +354,13 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
 
       setSelectedItems([]);
       loadData();
+      onDataChange?.();
       alert(`${selectedItems.length} item(s) moved to ${locationName}`);
     } catch (error) {
       console.error('Error with bulk location change:', error);
       alert('Error moving items');
     }
-  }, [selectedItems, db, getLocationInfo, currentUser, loadData]);
+  }, [selectedItems, db, getLocationInfo, currentUser, loadData, onDataChange]);
 
   const handleReprint = (item) => {
     setItemToPrint(item);
@@ -579,12 +581,13 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       letterSpacing: '1px'
     },
     bulkButtons: {
-      display: 'flex',
+      display: 'grid',
+      gridTemplateColumns: '1fr 1fr',
       gap: '8px',
-      flexWrap: 'wrap'
+      marginTop: '12px'
     },
     bulkBtn: {
-      padding: '10px 16px',
+      padding: '12px 16px',
       background: '#ffa500',
       color: '#1a1a1a',
       border: 'none',
@@ -593,7 +596,21 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       fontSize: '12px',
       fontWeight: '700',
       textTransform: 'uppercase',
-      letterSpacing: '0.5px'
+      letterSpacing: '0.5px',
+      whiteSpace: 'nowrap'
+    },
+    bulkBtnSecondary: {
+      padding: '12px 16px',
+      background: '#2d2d2d',
+      color: '#ffa500',
+      border: '2px solid #ffa500',
+      borderRadius: '4px',
+      cursor: 'pointer',
+      fontSize: '12px',
+      fontWeight: '700',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      whiteSpace: 'nowrap'
     },
     detailOverlay: {
       position: 'fixed',
@@ -871,30 +888,30 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
           <div style={styles.bulkTitle}>
             {selectedItems.length} Item(s) Selected
           </div>
+          <select
+            onChange={(e) => {
+              if (e.target.value) {
+                handleBulkLocationChange(e.target.value);
+                e.target.value = '';
+              }
+            }}
+            style={{ ...styles.select, width: '100%', marginTop: '8px' }}
+          >
+            <option value="">Move to Location...</option>
+            {locations.map(loc => (
+              <option key={loc.id} value={loc.id}>{loc.name}</option>
+            ))}
+          </select>
           <div style={styles.bulkButtons}>
-            <button onClick={handleSelectAllFiltered} style={styles.bulkBtn}>
+            <button onClick={handleSelectAllFiltered} style={styles.bulkBtnSecondary}>
               {selectedItems.length === filteredItems.length ? 'Deselect All' : 'Select All'}
             </button>
             <button onClick={() => handleBulkCheckout('transit')} style={styles.bulkBtn}>
-              Check Out (Transit)
+              Transit
             </button>
             <button onClick={() => handleBulkCheckout('band')} style={styles.bulkBtn}>
-              Check Out (Band)
+              Check Out
             </button>
-            <select
-              onChange={(e) => {
-                if (e.target.value) {
-                  handleBulkLocationChange(e.target.value);
-                  e.target.value = '';
-                }
-              }}
-              style={{ ...styles.select, flex: 1, minWidth: '150px' }}
-            >
-              <option value="">Move to Location...</option>
-              {locations.map(loc => (
-                <option key={loc.id} value={loc.id}>{loc.name}</option>
-              ))}
-            </select>
           </div>
         </div>
       )}
@@ -1013,13 +1030,14 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
             )}
 
             <div style={styles.detailButtons}>
+              {/* Location Change */}
               <select
                 onChange={(e) => {
                   if (e.target.value) {
                     handleLocationUpdate(selectedItemDetail.id, e.target.value);
                   }
                 }}
-                style={{ ...styles.select, width: '100%', marginBottom: '10px' }}
+                style={{ ...styles.select, width: '100%', marginBottom: '12px' }}
               >
                 <option value="">Change Location...</option>
                 {locations.map(loc => (
@@ -1027,23 +1045,21 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
                 ))}
               </select>
 
-              <button onClick={() => handleSelectItem(selectedItemDetail.id)} style={styles.detailBtn}>
-                {selectedItems.includes(selectedItemDetail.id) ? 'Deselect' : 'Select'}
-              </button>
-              <button onClick={() => setEditingItem(selectedItemDetail)} style={styles.detailBtn}>
-                Edit
-              </button>
-              <button onClick={() => handleReprint(selectedItemDetail)} style={styles.detailBtn}>
-                Print Label
-              </button>
-              <button onClick={() => setViewingHistory(selectedItemDetail.id)} style={styles.detailBtn}>
-                History
-              </button>
-              {canDeleteGear && (
-                <button onClick={() => handleDelete(selectedItemDetail.id)} style={{ ...styles.detailBtn, background: '#ff6b6b' }}>
-                  Delete
+              {/* Primary Actions Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
+                <button onClick={() => setEditingItem(selectedItemDetail)} style={styles.detailBtn}>
+                  Edit
                 </button>
-              )}
+                <button onClick={() => handleReprint(selectedItemDetail)} style={styles.detailBtn}>
+                  Print
+                </button>
+                <button onClick={() => setViewingHistory(selectedItemDetail.id)} style={styles.detailBtn}>
+                  History
+                </button>
+                <button onClick={() => handleSelectItem(selectedItemDetail.id)} style={styles.detailBtn}>
+                  {selectedItems.includes(selectedItemDetail.id) ? 'Deselect' : 'Select'}
+                </button>
+              </div>
 
               {/* Missing Item Actions */}
               {selectedItemDetail.missing_status === 'missing' ? (
@@ -1051,40 +1067,57 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
                   onClick={() => handleFoundIt(selectedItemDetail)}
                   style={{
                     width: '100%',
-                    padding: '16px',
+                    padding: '14px',
                     background: '#4caf50',
                     color: '#1a1a1a',
                     border: 'none',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '13px',
                     fontWeight: '700',
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
-                    marginTop: '10px'
+                    marginBottom: '8px'
                   }}
                 >
-                  ✓ I Found It - Select Location
+                  ✓ I Found It
                 </button>
               ) : (
                 <button
                   onClick={() => handleReportMissing(selectedItemDetail)}
                   style={{
                     width: '100%',
-                    padding: '16px',
+                    padding: '14px',
                     background: '#2d2d2d',
                     color: '#ff9800',
                     border: '2px solid #ff9800',
                     borderRadius: '6px',
                     cursor: 'pointer',
-                    fontSize: '14px',
+                    fontSize: '13px',
                     fontWeight: '700',
                     textTransform: 'uppercase',
                     letterSpacing: '1px',
-                    marginTop: '10px'
+                    marginBottom: '8px'
                   }}
                 >
                   ⚠️ Report Missing
+                </button>
+              )}
+
+              {/* Destructive Actions */}
+              {canDeleteGear && (
+                <button
+                  onClick={() => handleDelete(selectedItemDetail.id)}
+                  style={{
+                    ...styles.detailBtn,
+                    background: '#2d2d2d',
+                    color: '#ff6b6b',
+                    border: '2px solid #ff6b6b',
+                    width: '100%',
+                    marginBottom: '8px'
+                  }}
+                >
+                  Delete
                 </button>
               )}
 
