@@ -43,10 +43,9 @@ export default function Messages() {
 
       setMessages(sorted);
 
-      // Mark all NON-URGENT as read when page opens
-      // (Keep urgent unread so you can test the modal)
-      const nonUrgent = sorted.filter(m => m.category !== 'urgent');
-      await markAllAsRead(nonUrgent);
+      // Don't auto-mark messages as read anymore
+      // Messages should only be marked as read when explicitly clicked from message bar
+      // or when admin deletes them
 
       setLoading(false);
     } catch (error) {
@@ -154,7 +153,7 @@ export default function Messages() {
     }
   };
 
-  // Toggle pin status
+  // Toggle pin status (pin to top of messages list)
   const handleTogglePin = async (messageId, currentlyPinned) => {
     try {
       await db.messages.update(messageId, {
@@ -169,6 +168,26 @@ export default function Messages() {
 
     } catch (error) {
       console.error('Error toggling pin:', error);
+      setError('Failed to update message');
+      setTimeout(() => setError(''), 3000);
+    }
+  };
+
+  // Toggle pin to message bar (show in top bar)
+  const handleTogglePinToBar = async (messageId, currentlyPinnedToBar) => {
+    try {
+      await db.messages.update(messageId, {
+        pinned_to_bar: !currentlyPinnedToBar,
+        pinned_to_bar_at: !currentlyPinnedToBar ? new Date() : null
+      });
+
+      setMessage(currentlyPinnedToBar ? '✓ Removed from message bar' : '✓ Pinned to message bar');
+      setTimeout(() => setMessage(''), 3000);
+
+      loadMessages();
+
+    } catch (error) {
+      console.error('Error toggling bar pin:', error);
       setError('Failed to update message');
       setTimeout(() => setError(''), 3000);
     }
@@ -603,7 +622,13 @@ export default function Messages() {
                     style={styles.actionButton}
                     onClick={() => handleTogglePin(msg.id, msg.pinned)}
                   >
-                    {msg.pinned ? 'Unpin' : 'Pin'}
+                    {msg.pinned ? '📌 Unpin' : '📌 Pin'}
+                  </button>
+                  <button
+                    style={styles.actionButton}
+                    onClick={() => handleTogglePinToBar(msg.id, msg.pinned_to_bar)}
+                  >
+                    {msg.pinned_to_bar ? '📍 Unpin from Bar' : '📍 Pin to Bar'}
                   </button>
                   <button
                     style={styles.deleteButton}

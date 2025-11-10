@@ -62,6 +62,17 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
     return () => clearInterval(interval);
   }, [loadData]);
 
+  // Check for filter from message bar click
+  useEffect(() => {
+    const savedFilter = sessionStorage.getItem('gearListFilter');
+    if (savedFilter === 'missing') {
+      setFilterType('status');
+      setFilterValue('missing');
+      // Clear the filter from sessionStorage
+      sessionStorage.removeItem('gearListFilter');
+    }
+  }, []);
+
   const getTimeAgo = (date) => {
     if (!date) return '';
     const updated = date.toDate ? date.toDate() : new Date(date);

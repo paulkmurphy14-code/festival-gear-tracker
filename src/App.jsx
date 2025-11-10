@@ -7,6 +7,7 @@ import Schedule from './components/Schedule';
 import LocationManager from './components/LocationManager';
 import UserManagement from './components/UserManagement';
 import Messages from './components/Messages';
+import MessageBar from './components/MessageBar';
 import FestivalSelector from './components/FestivalSelector';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
@@ -76,16 +77,6 @@ const GlobalStyles = () => (
         box-shadow: 0 0 25px rgba(244, 67, 54, 0.5);
       }
     }
-
-    /* Pulse animation for urgent modal */
-    @keyframes urgentPulse {
-      0%, 100% {
-        box-shadow: 0 10px 40px rgba(244, 67, 54, 0.5);
-      }
-      50% {
-        box-shadow: 0 10px 60px rgba(244, 67, 54, 0.8);
-      }
-    }
   `}</style>
 );
 
@@ -104,8 +95,6 @@ function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0, missing: 0 });
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
-  const [urgentMessage, setUrgentMessage] = useState(null);
-  const [showUrgentModal, setShowUrgentModal] = useState(false);
   const [invitation, setInvitation] = useState(null);
 
   const loadLocations = useCallback(async () => {
@@ -164,115 +153,12 @@ function AppContent() {
     }
   }, [db, currentUser]);
 
-  // Check for urgent messages
-  const checkForUrgentMessages = useCallback(async () => {
-    if (!db || !currentUser) return;
-
-    try {
-      // Get all messages
-      const messages = await db.messages.toArray();
-
-      // Get read messages for current user
-      const readMessages = await db.message_reads
-        .where('user_id', '==', currentUser.uid)
-        .toArray();
-
-      const readIds = new Set(readMessages.map(r => r.message_id));
-
-      // Find unread urgent messages
-      const unreadUrgent = messages.filter(
-        msg => msg.category === 'urgent' && !readIds.has(msg.id)
-      );
-
-      // Sort by newest first
-      unreadUrgent.sort((a, b) => {
-        const aTime = a.created_at?.toMillis?.() || a.created_at?.getTime?.() || 0;
-        const bTime = b.created_at?.toMillis?.() || b.created_at?.getTime?.() || 0;
-        return bTime - aTime;
-      });
-
-      // Show first unread urgent if exists and modal not already showing
-      if (unreadUrgent.length > 0 && !showUrgentModal) {
-        console.log('🚨 Found urgent message, showing modal:', unreadUrgent[0]);
-        setUrgentMessage(unreadUrgent[0]);
-        setShowUrgentModal(true);
-      } else if (unreadUrgent.length === 0) {
-        console.log('No unread urgent messages');
-      }
-
-    } catch (error) {
-      console.error('Error checking urgent messages:', error);
-    }
-  }, [db, currentUser, showUrgentModal]);
-
-  // Dismiss urgent message
-  const handleDismissUrgent = async () => {
-    if (!urgentMessage || !currentUser) return;
-
-    try {
-      // Mark as read
-      await db.message_reads.add({
-        user_id: currentUser.uid,
-        message_id: urgentMessage.id,
-        read_at: new Date()
-      });
-
-      // Close modal
-      setShowUrgentModal(false);
-      setUrgentMessage(null);
-
-      // Update unread count
-      loadUnreadCount();
-
-      // Check for next urgent message after short delay
-      setTimeout(() => {
-        checkForUrgentMessages();
-      }, 500);
-
-    } catch (error) {
-      console.error('Error dismissing urgent message:', error);
-    }
-  };
-
-  // View all messages from urgent modal
-  const handleViewAllMessages = async () => {
-    // Mark current urgent as read
-    if (urgentMessage && currentUser) {
-      await db.message_reads.add({
-        user_id: currentUser.uid,
-        message_id: urgentMessage.id,
-        read_at: new Date()
-      });
-    }
-
-    // Close modal and go to messages page
-    setShowUrgentModal(false);
-    setUrgentMessage(null);
-    setActiveTab('messages');
-    loadUnreadCount();
-  };
-
-  // Format timestamp for urgent modal
-  const formatTime = (timestamp) => {
-    if (!timestamp) return '';
-    const date = timestamp?.toDate?.() || new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
-  };
 
   useEffect(() => {
     loadLocations();
     loadStatusCounts();
     loadUnreadCount();
   }, [loadLocations, loadStatusCounts, loadUnreadCount, refreshTrigger]);
-
-  // Check for urgent messages on load and every 30 seconds
-  useEffect(() => {
-    checkForUrgentMessages();
-
-    const interval = setInterval(checkForUrgentMessages, 30000);
-
-    return () => clearInterval(interval);
-  }, [checkForUrgentMessages]);
 
   const handleScan = useCallback(async (qrData) => {
     if (qrData && qrData.startsWith('GEAR:')) {
@@ -629,94 +515,25 @@ function AppContent() {
       textAlign: 'center',
       boxShadow: '0 2px 6px rgba(244,67,54,0.4)'
     },
-    urgentModalOverlay: {
+    floatingBackButton: {
       position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.85)',
-      zIndex: 2000,
+      bottom: '20px',
+      right: '20px',
+      width: '56px',
+      height: '56px',
+      borderRadius: '50%',
+      backgroundColor: '#ffa500',
+      color: '#1a1a1a',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '24px',
+      fontWeight: '700',
+      boxShadow: '0 4px 12px rgba(255, 165, 0, 0.4)',
+      zIndex: 1000,
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
-    },
-    urgentModalCard: {
-      background: '#2d2d2d',
-      borderRadius: '12px',
-      padding: '24px',
-      maxWidth: '400px',
-      width: '100%',
-      border: '3px solid #f44336',
-      boxShadow: '0 10px 40px rgba(244, 67, 54, 0.5)',
-      animation: 'urgentPulse 2s ease-in-out infinite'
-    },
-    urgentModalHeader: {
-      display: 'flex',
-      alignItems: 'center',
-      gap: '12px',
-      marginBottom: '20px',
-      paddingBottom: '16px',
-      borderBottom: '2px solid #f44336'
-    },
-    urgentIcon: {
-      fontSize: '32px'
-    },
-    urgentTitle: {
-      fontSize: '18px',
-      fontWeight: '700',
-      color: '#ff6b6b',
-      textTransform: 'uppercase',
-      letterSpacing: '1.5px'
-    },
-    urgentModalContent: {
-      fontSize: '15px',
-      color: '#e0e0e0',
-      lineHeight: '1.6',
-      marginBottom: '20px',
-      whiteSpace: 'pre-wrap'
-    },
-    urgentModalFooter: {
-      marginBottom: '20px'
-    },
-    urgentModalMeta: {
-      fontSize: '12px',
-      color: '#888',
-      fontWeight: '600'
-    },
-    urgentModalButtons: {
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '10px'
-    },
-    urgentViewAllBtn: {
-      width: '100%',
-      padding: '14px',
-      background: '#f44336',
-      color: 'white',
-      border: 'none',
-      borderRadius: '6px',
-      fontSize: '14px',
-      fontWeight: '700',
-      cursor: 'pointer',
-      textTransform: 'uppercase',
-      letterSpacing: '1px',
-      transition: 'background 0.2s'
-    },
-    urgentDismissBtn: {
-      width: '100%',
-      padding: '14px',
-      background: '#2d2d2d',
-      color: '#ccc',
-      border: '2px solid #444',
-      borderRadius: '6px',
-      fontSize: '14px',
-      fontWeight: '700',
-      cursor: 'pointer',
-      textTransform: 'uppercase',
-      letterSpacing: '1px',
-      transition: 'all 0.2s'
+      transition: 'all 0.2s ease'
     },
     logoutButton: {
       width: '100%',
@@ -782,6 +599,23 @@ function AppContent() {
           </div>
         </div>
 
+        {/* Message Bar - Scrollable notifications */}
+        <MessageBar
+          statusCounts={statusCounts}
+          onMessageClick={(tab, filter) => {
+            setActiveTab(tab);
+            if (filter === 'missing') {
+              // Store the filter to pass to GearList
+              sessionStorage.setItem('gearListFilter', 'missing');
+            }
+            // Trigger refresh to update counts
+            setTimeout(() => {
+              setRefreshTrigger(prev => prev + 1);
+            }, 500);
+          }}
+          key={refreshTrigger}
+        />
+
         {/* Status Info Bar */}
         <div style={styles.infoBar}>
           <div style={styles.infoBarItem}>
@@ -816,21 +650,6 @@ function AppContent() {
         {/* Home Page */}
         {activeTab === 'home' && (
           <div style={styles.homeContent}>
-            {/* Missing Items Alert Banner */}
-            {statusCounts.missing > 0 && (
-              <div
-                style={styles.missingAlertBanner}
-                onClick={() => setActiveTab('gear')}
-              >
-                <div style={styles.missingAlertTitle}>
-                  🚨 {statusCounts.missing} {statusCounts.missing === 1 ? 'ITEM' : 'ITEMS'} MISSING
-                </div>
-                <div style={styles.missingAlertItems}>
-                  Click to view missing items →
-                </div>
-              </div>
-            )}
-
             <div style={styles.homeButtons}>
               <div style={styles.homeButton} onClick={() => setActiveTab('scanner')}>
                 <span style={styles.homeButtonIcon}>📷</span>
@@ -958,23 +777,19 @@ function AppContent() {
               onDataChange={() => setRefreshTrigger(prev => prev + 1)}
             />
             <button
+              style={styles.floatingBackButton}
               onClick={() => setActiveTab('home')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -983,23 +798,19 @@ function AppContent() {
           <>
             <Schedule key={refreshTrigger} locationColors={locationColors} />
             <button
+              style={styles.floatingBackButton}
               onClick={() => setActiveTab('home')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -1013,23 +824,19 @@ function AppContent() {
               onDataChange={() => setRefreshTrigger(prev => prev + 1)}
             />
             <button
+              style={styles.floatingBackButton}
               onClick={() => setActiveTab('home')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -1038,23 +845,19 @@ function AppContent() {
           <>
             <LocationManager onUpdate={handleLocationsUpdate} />
             <button
+              style={styles.floatingBackButton}
               onClick={() => setActiveTab('home')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -1063,23 +866,19 @@ function AppContent() {
           <>
             <UserManagement />
             <button
+              style={styles.floatingBackButton}
               onClick={() => setActiveTab('home')}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -1088,26 +887,22 @@ function AppContent() {
           <>
             <Messages />
             <button
+              style={styles.floatingBackButton}
               onClick={() => {
                 setActiveTab('home');
                 loadUnreadCount(); // Refresh count when returning home
               }}
-              style={{
-                marginTop: '20px',
-                width: '100%',
-                padding: '16px',
-                background: '#2d2d2d',
-                color: '#ffa500',
-                border: '2px solid #ffa500',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: '700',
-                textTransform: 'uppercase',
-                letterSpacing: '1px'
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
               }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
             >
-              Back to Home
+              🏠
             </button>
           </>
         )}
@@ -1135,43 +930,6 @@ function AppContent() {
               Back to Home
             </button>
           </>
-        )}
-
-        {/* Urgent Message Modal */}
-        {showUrgentModal && urgentMessage && (
-          <div style={styles.urgentModalOverlay}>
-            <div style={styles.urgentModalCard}>
-              <div style={styles.urgentModalHeader}>
-                <span style={styles.urgentIcon}>🚨</span>
-                <span style={styles.urgentTitle}>URGENT MESSAGE</span>
-              </div>
-
-              <div style={styles.urgentModalContent}>
-                {urgentMessage.content}
-              </div>
-
-              <div style={styles.urgentModalFooter}>
-                <div style={styles.urgentModalMeta}>
-                  {urgentMessage.author_name} • {formatTime(urgentMessage.created_at)}
-                </div>
-              </div>
-
-              <div style={styles.urgentModalButtons}>
-                <button
-                  onClick={handleViewAllMessages}
-                  style={styles.urgentViewAllBtn}
-                >
-                  View All Messages
-                </button>
-                <button
-                  onClick={handleDismissUrgent}
-                  style={styles.urgentDismissBtn}
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
         )}
 
         {activeTab === 'scanned' && scannedGear && (
