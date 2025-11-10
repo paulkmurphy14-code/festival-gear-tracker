@@ -386,71 +386,86 @@ export default function UserManagement() {
                   marginBottom: '12px',
                   background: '#1a1a1a',
                   borderRadius: '12px',
-                  border: '1px solid #3a3a3a',
+                  border: '1px solid #3a3a3a'
+                }}
+              >
+                {/* Top row: Email and Role Badge */}
+                <div style={{
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'space-between',
-                  gap: '16px'
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{
-                    fontSize: '16px',
-                    fontWeight: '600',
-                    color: '#e0e0e0',
-                    marginBottom: '4px'
-                  }}>
-                    {user.email}
-                  </div>
-                  {user.id === currentFestival.ownerId && (
-                    <div style={{ fontSize: '12px', color: '#888' }}>
-                      Festival Owner - Cannot be changed
+                  marginBottom: user.id === currentFestival.ownerId ? '0' : '12px',
+                  gap: '12px'
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{
+                      fontSize: '15px',
+                      fontWeight: '600',
+                      color: '#e0e0e0',
+                      marginBottom: '4px',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      {user.email}
                     </div>
-                  )}
+                    {user.id === currentFestival.ownerId && (
+                      <div style={{ fontSize: '11px', color: '#888' }}>
+                        Festival Owner
+                      </div>
+                    )}
+                  </div>
+                  <div style={getRoleBadge(user.id === currentFestival.ownerId ? 'owner' : user.role)}>
+                    {user.id === currentFestival.ownerId ? 'OWNER' : (user.role || 'user').toUpperCase()}
+                  </div>
                 </div>
 
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  {user.id === currentFestival.ownerId ? (
-                    <div style={getRoleBadge('owner')}>Owner</div>
-                  ) : (
-                    <>
-                      <select
-                        value={user.role}
-                        onChange={(e) => handleChangeRole(user.id, e.target.value)}
-                        style={{
-                          padding: '8px 12px',
-                          fontSize: '14px',
-                          borderRadius: '8px',
-                          border: '2px solid #664400',
-                          backgroundColor: '#1a1a1a',
-                          color: '#e0e0e0',
-                          fontWeight: '600'
-                        }}
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                      </select>
+                {/* Bottom row: Actions (only for non-owners) */}
+                {user.id !== currentFestival.ownerId && (
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr auto',
+                    gap: '8px',
+                    alignItems: 'center'
+                  }}>
+                    <select
+                      value={user.role || 'user'}
+                      onChange={(e) => handleChangeRole(user.id, e.target.value)}
+                      style={{
+                        padding: '10px 12px',
+                        fontSize: '13px',
+                        borderRadius: '6px',
+                        border: '2px solid #664400',
+                        backgroundColor: '#2d2d2d',
+                        color: '#e0e0e0',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
 
-                      <button
-                        onClick={() => handleRemoveUser(user.id)}
-                        style={{
-                          padding: '8px 16px',
-                          background: 'rgba(244, 67, 54, 0.2)',
-                          color: '#ff6b6b',
-                          border: '2px solid #ff6b6b',
-                          borderRadius: '8px',
-                          fontSize: '14px',
-                          fontWeight: '700',
-                          cursor: 'pointer',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px'
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </>
-                  )}
-                </div>
+                    <button
+                      onClick={() => handleRemoveUser(user.id)}
+                      style={{
+                        padding: '10px 14px',
+                        background: 'rgba(244, 67, 54, 0.2)',
+                        color: '#ff6b6b',
+                        border: '2px solid #ff6b6b',
+                        borderRadius: '6px',
+                        fontSize: '12px',
+                        fontWeight: '700',
+                        cursor: 'pointer',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        whiteSpace: 'nowrap'
+                      }}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
