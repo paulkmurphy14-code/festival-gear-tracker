@@ -1,0 +1,30 @@
+Band Name,Stage,Date,Time
+Valid Band,Main Stage,08-11-2025,18:00
+,Main Stage,08-11-2025,19:00
+Band Without Stage,,08-11-2025,19:30
+Band Without Date,Main Stage,,20:00
+Band Without Time,Main Stage,08-11-2025,
+Complete Blank Row,,,,
+Band,Wrong Stage Name,08-11-2025,21:00
+Band,Main Stage,99-99-9999,21:30
+Band,Main Stage,08-11-2025,99:99
+Band,Main Stage,2025-11-08,22:00
+Band,Main Stage,08/11/2025,22:30
+Band,Main Stage,08-11-2025,10:00 PM
+Band,Main Stage,08-11-25,23:00
+Band,Main Stage,8-11-2025,23:30
+Band,Main Stage,08-11-2025,9:00
+Too,Few,Columns
+Too,Many,Columns,Here,Extra,Extra
+Band With "Unescaped Quote,Main Stage,09-11-2025,18:00
+"Band Missing Close Quote,Main Stage,09-11-2025,18:30
+Band,Main Stage,00-00-0000,19:00
+Band,Main Stage,32-13-2025,19:30
+Band,Main Stage,08-11-2025,24:00
+Band,Main Stage,08-11-2025,12:60
+Band,Main Stage,08-11-2025,-01:00
+Band,Main Stage,08-11-2025,1:5
+"Band
+With
+Newlines",Main Stage,10-11-2025,20:00
+Band	With	Tabs,Main Stage,10-11-2025,20:30

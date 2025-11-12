@@ -1,11 +1,12 @@
 import { db } from './firebase';
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
+import {
+  collection,
+  doc,
+  addDoc,
+  getDoc,
+  getDocs,
+  getDocsFromServer,
+  updateDoc,
   deleteDoc,
   query,
   where as fbWhere,
@@ -46,7 +47,7 @@ export function getFirestoreDb(festivalId) {
       },
       
       async toArray() {
-        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/gear`));
+        const snapshot = await getDocsFromServer(collection(db, `festivals/${festivalId}/gear`));
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       },
       
@@ -92,7 +93,7 @@ export function getFirestoreDb(festivalId) {
       },
       
       async toArray() {
-        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/locations`));
+        const snapshot = await getDocsFromServer(collection(db, `festivals/${festivalId}/locations`));
         return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       },
       
@@ -212,6 +213,101 @@ export function getFirestoreDb(festivalId) {
 
       async delete(id) {
         await deleteDoc(doc(db, `festivals/${festivalId}/message_reads`, String(id)));
+      }
+    },
+
+    bands: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/bands`), data);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/bands`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/bands`, String(id)));
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/bands`),
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
+      }
+    },
+
+    invitations: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/invitations`), data);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/invitations`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async update(id, data) {
+        await updateDoc(doc(db, `festivals/${festivalId}/invitations`, String(id)), data);
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/invitations`, String(id)));
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/invitations`),
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
+      }
+    },
+
+    reminders: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/reminders`), data);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocs(collection(db, `festivals/${festivalId}/reminders`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async update(id, data) {
+        await updateDoc(doc(db, `festivals/${festivalId}/reminders`, String(id)), data);
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/reminders`, String(id)));
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/reminders`),
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
       }
     }
   };

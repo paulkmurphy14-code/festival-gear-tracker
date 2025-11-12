@@ -24,6 +24,14 @@ export default function UserManagement() {
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState('user');
   const [message, setMessage] = useState('');
+  const [showBulkUpload, setShowBulkUpload] = useState(false);
+  const [csvFile, setCsvFile] = useState(null);
+  const [parsedUsers, setParsedUsers] = useState([]);
+  const [showPreview, setShowPreview] = useState(false);
+  const [uploadError, setUploadError] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [showBulkForm, setShowBulkForm] = useState(false);
+  const [bulkFormUsers, setBulkFormUsers] = useState([{ name: '', email: '', role: 'user' }]);
 
   useEffect(() => {
     if (canManageUsers && currentFestival) {
@@ -162,6 +170,289 @@ export default function UserManagement() {
     }
   };
 
+  const handleFileSelect = (e) => {
+    const selectedFile = e.target.files[0];
+    if (selectedFile && selectedFile.type === 'text/csv') {
+      setCsvFile(selectedFile);
+      setUploadError('');
+    } else {
+      setUploadError('Please select a valid CSV file');
+    }
+  };
+
+  const parseCSV = async () => {
+    if (!csvFile) return;
+
+    try {
+      const text = await csvFile.text();
+      const lines = text.split('\n').filter(line => line.trim());
+
+      if (lines.length === 0) {
+        setUploadError('CSV file is empty');
+        return;
+      }
+
+      // Check for header
+      const firstLine = lines[0].toLowerCase();
+      const hasHeader = firstLine.includes('name') || firstLine.includes('email');
+      const dataLines = hasHeader ? lines.slice(1) : lines;
+
+      const users = [];
+      const errors = [];
+      const seenEmails = new Set();
+
+      dataLines.forEach((line, index) => {
+        const rowNum = hasHeader ? index + 2 : index + 1;
+
+        if (!line.trim()) return;
+
+        const parts = line.split(',').map(p => p.trim().replace(/^"|"$/g, ''));
+
+        if (parts.length < 3) {
+          errors.push(`Row ${rowNum}: Expected 3 columns (Name, Email, Role)`);
+          return;
+        }
+
+        const [name, email, role] = parts;
+
+        // Validate name
+        if (!name || name.length === 0) {
+          errors.push(`Row ${rowNum}: Name is required`);
+          return;
+        }
+
+        if (name.length > 100) {
+          errors.push(`Row ${rowNum}: Name too long (max 100 characters)`);
+          return;
+        }
+
+        // Validate email
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email)) {
+          errors.push(`Row ${rowNum}: Invalid email "${email}"`);
+          return;
+        }
+
+        // Check duplicate
+        if (seenEmails.has(email.toLowerCase())) {
+          errors.push(`Row ${rowNum}: Duplicate email "${email}"`);
+          return;
+        }
+        seenEmails.add(email.toLowerCase());
+
+        // Validate role
+        const normalizedRole = role.toLowerCase();
+        if (normalizedRole !== 'admin' && normalizedRole !== 'user') {
+          errors.push(`Row ${rowNum}: Role must be "admin" or "user", got "${role}"`);
+          return;
+        }
+
+        users.push({
+          name: name.trim(),
+          email: email.toLowerCase().trim(),
+          role: normalizedRole
+        });
+      });
+
+      if (errors.length > 0) {
+        setUploadError(`Validation errors:\n${errors.join('\n')}`);
+        return;
+      }
+
+      if (users.length === 0) {
+        setUploadError('No valid users found in CSV');
+        return;
+      }
+
+      setParsedUsers(users);
+      setShowPreview(true);
+
+    } catch (error) {
+      console.error('CSV parse error:', error);
+      setUploadError('Error parsing CSV: ' + error.message);
+    }
+  };
+
+  const generateInvitationCode = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const segments = 3;
+    const segmentLength = 2;
+
+    const code = Array.from({ length: segments }, () => {
+      return Array.from({ length: segmentLength }, () =>
+        chars[Math.floor(Math.random() * chars.length)]
+      ).join('');
+    }).join('-');
+
+    return `FEST-${code}`;
+  };
+
+  const createInvitations = async () => {
+    try {
+      setUploading(true);
+      const invitations = [];
+
+      for (const user of parsedUsers) {
+        const code = generateInvitationCode();
+
+        const invitationRef = doc(collection(db, 'invitations'));
+
+        await setDoc(invitationRef, {
+          code: code,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          festivalId: currentFestival.id,
+          festivalName: currentFestival.name,
+          invitedBy: currentUser.uid,
+          invitedAt: new Date(),
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          invitationId: invitationRef.id
+        });
+
+        invitations.push({
+          ...user,
+          code: code
+        });
+      }
+
+      // Export CSV for download
+      exportInvitationsCSV(invitations);
+
+      setUploading(false);
+      setMessage(`✅ ${invitations.length} invitation(s) created successfully!`);
+      setTimeout(() => setMessage(''), 5000);
+      setShowBulkUpload(false);
+      setShowPreview(false);
+      setCsvFile(null);
+      setParsedUsers([]);
+
+    } catch (error) {
+      console.error('Error creating invitations:', error);
+      setUploadError('Failed to create invitations: ' + error.message);
+      setUploading(false);
+    }
+  };
+
+  const exportInvitationsCSV = (invitations) => {
+    const header = 'Name,Email,Role,Invitation Code\n';
+    const rows = invitations.map(inv =>
+      `${inv.name},${inv.email},${inv.role},${inv.code}`
+    ).join('\n');
+
+    const csv = header + rows;
+
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invitations_${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleAddFormRow = () => {
+    setBulkFormUsers([...bulkFormUsers, { name: '', email: '', role: 'user' }]);
+  };
+
+  const handleRemoveFormRow = (index) => {
+    if (bulkFormUsers.length > 1) {
+      setBulkFormUsers(bulkFormUsers.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleFormUserChange = (index, field, value) => {
+    const updated = [...bulkFormUsers];
+    updated[index][field] = value;
+    setBulkFormUsers(updated);
+  };
+
+  const validateBulkForm = () => {
+    const errors = [];
+    const seenEmails = new Set();
+
+    bulkFormUsers.forEach((user, index) => {
+      const rowNum = index + 1;
+
+      // Validate name
+      if (!user.name || !user.name.trim()) {
+        errors.push(`Row ${rowNum}: Name is required`);
+      } else if (user.name.length > 100) {
+        errors.push(`Row ${rowNum}: Name too long (max 100 characters)`);
+      }
+
+      // Validate email
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!user.email || !user.email.trim()) {
+        errors.push(`Row ${rowNum}: Email is required`);
+      } else if (!emailRegex.test(user.email)) {
+        errors.push(`Row ${rowNum}: Invalid email "${user.email}"`);
+      } else if (seenEmails.has(user.email.toLowerCase())) {
+        errors.push(`Row ${rowNum}: Duplicate email "${user.email}"`);
+      } else {
+        seenEmails.add(user.email.toLowerCase());
+      }
+    });
+
+    return errors;
+  };
+
+  const handleBulkFormSubmit = async () => {
+    const errors = validateBulkForm();
+
+    if (errors.length > 0) {
+      setUploadError(`Validation errors:\n${errors.join('\n')}`);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const invitations = [];
+
+      for (const user of bulkFormUsers) {
+        const code = generateInvitationCode();
+        const invitationRef = doc(collection(db, 'invitations'));
+
+        await setDoc(invitationRef, {
+          code: code,
+          email: user.email.trim(),
+          name: user.name.trim(),
+          role: user.role,
+          festivalId: currentFestival.id,
+          festivalName: currentFestival.name,
+          invitedBy: currentUser.uid,
+          invitedAt: new Date(),
+          status: 'pending',
+          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          invitationId: invitationRef.id
+        });
+
+        invitations.push({
+          name: user.name.trim(),
+          email: user.email.trim(),
+          role: user.role,
+          code: code
+        });
+      }
+
+      // Export CSV
+      exportInvitationsCSV(invitations);
+
+      setUploading(false);
+      setMessage(`✅ ${invitations.length} invitation(s) created successfully!`);
+      setTimeout(() => setMessage(''), 5000);
+      setShowBulkForm(false);
+      setBulkFormUsers([{ name: '', email: '', role: 'user' }]);
+      setUploadError('');
+
+    } catch (error) {
+      console.error('Error creating invitations:', error);
+      setUploadError('Failed to create invitations: ' + error.message);
+      setUploading(false);
+    }
+  };
+
   const getRoleBadge = (role) => {
     const styles = {
       owner: { bg: 'rgba(255, 165, 0, 0.2)', color: '#ffa500', border: '#ffa500' },
@@ -248,6 +539,53 @@ export default function UserManagement() {
         </div>
       )}
 
+      {/* Action Buttons */}
+      <div style={{
+        display: 'flex',
+        gap: '12px',
+        marginBottom: '24px',
+        flexWrap: 'wrap'
+      }}>
+        <button
+          onClick={() => setShowBulkForm(true)}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '16px',
+            background: '#ffa500',
+            color: '#1a1a1a',
+            border: 'none',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}
+        >
+          ✏️ Bulk Add (Form)
+        </button>
+        <button
+          onClick={() => setShowBulkUpload(true)}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '16px',
+            background: '#2d2d2d',
+            color: '#ffa500',
+            border: '2px solid #ffa500',
+            borderRadius: '8px',
+            fontSize: '14px',
+            fontWeight: '700',
+            cursor: 'pointer',
+            textTransform: 'uppercase',
+            letterSpacing: '1px'
+          }}
+        >
+          📤 Bulk Upload (CSV)
+        </button>
+      </div>
+
       {/* Invite User Form */}
       <div style={{
         background: '#2d2d2d',
@@ -265,7 +603,7 @@ export default function UserManagement() {
           textTransform: 'uppercase',
           letterSpacing: '1px'
         }}>
-          Invite New User
+          Invite Single User
         </h3>
 
         <form onSubmit={handleInviteUser}>
@@ -471,6 +809,596 @@ export default function UserManagement() {
           </div>
         )}
       </div>
+
+      {/* Bulk Upload Modal */}
+      {showBulkUpload && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }} onClick={() => {
+          setShowBulkUpload(false);
+          setShowPreview(false);
+          setCsvFile(null);
+          setParsedUsers([]);
+          setUploadError('');
+        }}>
+          <div style={{
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '500px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            border: '2px solid #ffa500'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #3a3a3a'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#ffa500',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                {showPreview ? 'Preview Users' : 'Bulk Upload Users'}
+              </h3>
+            </div>
+
+            {uploadError && (
+              <div style={{
+                padding: '12px',
+                marginBottom: '20px',
+                background: 'rgba(244, 67, 54, 0.2)',
+                color: '#ff6b6b',
+                borderRadius: '6px',
+                border: '2px solid #f44336',
+                fontSize: '13px',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {uploadError}
+              </div>
+            )}
+
+            {!showPreview ? (
+              <div>
+                <div style={{
+                  padding: '16px',
+                  background: '#1a1a1a',
+                  borderRadius: '6px',
+                  marginBottom: '20px',
+                  border: '1px solid #3a3a3a'
+                }}>
+                  <div style={{
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    color: '#ffa500',
+                    marginBottom: '8px',
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px'
+                  }}>
+                    CSV Format:
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#ccc',
+                    fontFamily: 'monospace',
+                    lineHeight: '1.6',
+                    marginBottom: '8px'
+                  }}>
+                    Name, Email, Role<br/>
+                    John Smith, john@crew.com, admin<br/>
+                    Sarah Connor, sarah@crew.com, user
+                  </div>
+                  <div style={{
+                    fontSize: '12px',
+                    color: '#888'
+                  }}>
+                    Roles: <strong>admin</strong> or <strong>user</strong>
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  <input
+                    type="file"
+                    accept=".csv"
+                    onChange={handleFileSelect}
+                    style={{
+                      width: '100%',
+                      padding: '12px',
+                      fontSize: '14px',
+                      borderRadius: '6px',
+                      border: '2px dashed #ffa500',
+                      backgroundColor: '#1a1a1a',
+                      color: '#e0e0e0',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  {csvFile && (
+                    <div style={{
+                      marginTop: '10px',
+                      padding: '10px',
+                      background: 'rgba(76, 175, 80, 0.2)',
+                      color: '#4caf50',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontWeight: '600'
+                    }}>
+                      ✓ {csvFile.name}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <button
+                    onClick={parseCSV}
+                    disabled={!csvFile}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: csvFile ? '#ffa500' : '#555',
+                      color: csvFile ? '#1a1a1a' : '#888',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      cursor: csvFile ? 'pointer' : 'not-allowed',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    Preview & Upload
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowBulkUpload(false);
+                      setCsvFile(null);
+                      setUploadError('');
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: '#2d2d2d',
+                      color: '#ffa500',
+                      border: '2px solid #ffa500',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      cursor: 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  fontSize: '15px',
+                  color: '#e0e0e0',
+                  marginBottom: '20px',
+                  fontWeight: '600'
+                }}>
+                  {parsedUsers.length} users ready to invite:
+                </div>
+
+                <div style={{ marginBottom: '20px' }}>
+                  {parsedUsers.filter(u => u.role === 'admin').length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{
+                        fontSize: '13px',
+                        color: '#ffa500',
+                        fontWeight: '700',
+                        marginBottom: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        Admins ({parsedUsers.filter(u => u.role === 'admin').length}):
+                      </div>
+                      {parsedUsers.filter(u => u.role === 'admin').map((user, idx) => (
+                        <div key={idx} style={{
+                          fontSize: '13px',
+                          color: '#ccc',
+                          marginBottom: '4px',
+                          paddingLeft: '8px'
+                        }}>
+                          • {user.name} ({user.email})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {parsedUsers.filter(u => u.role === 'user').length > 0 && (
+                    <div>
+                      <div style={{
+                        fontSize: '13px',
+                        color: '#ffa500',
+                        fontWeight: '700',
+                        marginBottom: '8px',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px'
+                      }}>
+                        Users ({parsedUsers.filter(u => u.role === 'user').length}):
+                      </div>
+                      {parsedUsers.filter(u => u.role === 'user').map((user, idx) => (
+                        <div key={idx} style={{
+                          fontSize: '13px',
+                          color: '#ccc',
+                          marginBottom: '4px',
+                          paddingLeft: '8px'
+                        }}>
+                          • {user.name} ({user.email})
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{
+                  padding: '12px',
+                  background: 'rgba(255, 165, 0, 0.15)',
+                  border: '1px solid #ffa500',
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#ffa500',
+                  marginBottom: '20px'
+                }}>
+                  ⚠️ Invitation codes will be generated and downloaded as CSV
+                </div>
+
+                <div style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '10px'
+                }}>
+                  <button
+                    onClick={createInvitations}
+                    disabled={uploading}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: uploading ? '#555' : '#ffa500',
+                      color: uploading ? '#888' : '#1a1a1a',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    {uploading ? 'Creating...' : 'Confirm & Create Invitations'}
+                  </button>
+                  <button
+                    onClick={() => setShowPreview(false)}
+                    disabled={uploading}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: '#2d2d2d',
+                      color: uploading ? '#555' : '#ffa500',
+                      border: `2px solid ${uploading ? '#555' : '#ffa500'}`,
+                      borderRadius: '6px',
+                      fontSize: '14px',
+                      fontWeight: '700',
+                      cursor: uploading ? 'not-allowed' : 'pointer',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    Back
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Form Modal */}
+      {showBulkForm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.85)',
+          zIndex: 2000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }} onClick={() => {
+          setShowBulkForm(false);
+          setBulkFormUsers([{ name: '', email: '', role: 'user' }]);
+          setUploadError('');
+        }}>
+          <div style={{
+            background: '#2d2d2d',
+            borderRadius: '12px',
+            padding: '24px',
+            maxWidth: '600px',
+            width: '100%',
+            maxHeight: '80vh',
+            overflowY: 'auto',
+            border: '2px solid #ffa500'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #3a3a3a'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#ffa500',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                Bulk Add Users (Form)
+              </h3>
+              <div style={{
+                fontSize: '13px',
+                color: '#888',
+                marginTop: '8px'
+              }}>
+                Add multiple users at once. Invitation codes will be generated automatically.
+              </div>
+            </div>
+
+            {uploadError && (
+              <div style={{
+                padding: '12px',
+                marginBottom: '20px',
+                background: 'rgba(244, 67, 54, 0.2)',
+                color: '#ff6b6b',
+                borderRadius: '6px',
+                border: '2px solid #f44336',
+                fontSize: '13px',
+                whiteSpace: 'pre-wrap'
+              }}>
+                {uploadError}
+              </div>
+            )}
+
+            <div style={{ marginBottom: '20px' }}>
+              {bulkFormUsers.map((user, index) => (
+                <div key={index} style={{
+                  padding: '16px',
+                  background: '#1a1a1a',
+                  borderRadius: '8px',
+                  marginBottom: '12px',
+                  border: '1px solid #3a3a3a'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      color: '#ffa500',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}>
+                      User {index + 1}
+                    </div>
+                    {bulkFormUsers.length > 1 && (
+                      <button
+                        onClick={() => handleRemoveFormRow(index)}
+                        style={{
+                          padding: '6px 12px',
+                          background: 'rgba(244, 67, 54, 0.2)',
+                          color: '#ff6b6b',
+                          border: '2px solid #ff6b6b',
+                          borderRadius: '4px',
+                          fontSize: '11px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        Remove
+                      </button>
+                    )}
+                  </div>
+
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#ffa500'
+                    }}>
+                      Name *
+                    </label>
+                    <input
+                      type="text"
+                      value={user.name}
+                      onChange={(e) => handleFormUserChange(index, 'name', e.target.value)}
+                      placeholder="John Smith"
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '2px solid #664400',
+                        backgroundColor: '#2d2d2d',
+                        color: '#e0e0e0',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div style={{ marginBottom: '12px' }}>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#ffa500'
+                    }}>
+                      Email *
+                    </label>
+                    <input
+                      type="email"
+                      value={user.email}
+                      onChange={(e) => handleFormUserChange(index, 'email', e.target.value)}
+                      placeholder="john@crew.com"
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '2px solid #664400',
+                        backgroundColor: '#2d2d2d',
+                        color: '#e0e0e0',
+                        boxSizing: 'border-box'
+                      }}
+                    />
+                  </div>
+
+                  <div>
+                    <label style={{
+                      display: 'block',
+                      marginBottom: '6px',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      color: '#ffa500'
+                    }}>
+                      Role
+                    </label>
+                    <select
+                      value={user.role}
+                      onChange={(e) => handleFormUserChange(index, 'role', e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '10px',
+                        fontSize: '14px',
+                        borderRadius: '6px',
+                        border: '2px solid #664400',
+                        backgroundColor: '#2d2d2d',
+                        color: '#e0e0e0',
+                        boxSizing: 'border-box',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+
+              <button
+                onClick={handleAddFormRow}
+                style={{
+                  width: '100%',
+                  padding: '12px',
+                  background: '#2d2d2d',
+                  color: '#ffa500',
+                  border: '2px dashed #ffa500',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                + Add Another User
+              </button>
+            </div>
+
+            <div style={{
+              padding: '12px',
+              background: 'rgba(255, 165, 0, 0.15)',
+              border: '1px solid #ffa500',
+              borderRadius: '6px',
+              fontSize: '12px',
+              color: '#ffa500',
+              marginBottom: '20px'
+            }}>
+              ⚠️ Invitation codes will be generated and downloaded as CSV
+            </div>
+
+            <div style={{
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '10px'
+            }}>
+              <button
+                onClick={handleBulkFormSubmit}
+                disabled={uploading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: uploading ? '#555' : '#ffa500',
+                  color: uploading ? '#888' : '#1a1a1a',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                {uploading ? 'Creating...' : `Create ${bulkFormUsers.length} Invitation(s)`}
+              </button>
+              <button
+                onClick={() => {
+                  setShowBulkForm(false);
+                  setBulkFormUsers([{ name: '', email: '', role: 'user' }]);
+                  setUploadError('');
+                }}
+                disabled={uploading}
+                style={{
+                  width: '100%',
+                  padding: '14px',
+                  background: '#2d2d2d',
+                  color: uploading ? '#555' : '#ffa500',
+                  border: `2px solid ${uploading ? '#555' : '#ffa500'}`,
+                  borderRadius: '6px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: uploading ? 'not-allowed' : 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

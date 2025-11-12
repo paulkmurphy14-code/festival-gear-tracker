@@ -3,6 +3,7 @@ import { useDatabase } from '../contexts/DatabaseContext';
 import { useRole } from '../hooks/useRole';
 import EditGear from './EditGear';
 import ScanHistory from './ScanHistory';
+import { normalizeBandName } from '../utils/bandNormalization';
 
 export default function GearList({ locationColors, currentUser, onDataChange }) {
   const db = useDatabase();
@@ -20,6 +21,8 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
   const [expandedBands, setExpandedBands] = useState({});
   const [selectedItemDetail, setSelectedItemDetail] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [viewingSchedule, setViewingSchedule] = useState(null);
+  const [schedulePerformances, setSchedulePerformances] = useState([]);
 
   const loadData = useCallback(async () => {
     try {
@@ -393,12 +396,67 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
   const groupByBand = (items) => {
     const grouped = {};
     items.forEach(item => {
-      if (!grouped[item.band_id]) {
-        grouped[item.band_id] = [];
+      // Use normalized for grouping key
+      const normalized = item.band_id_normalized || normalizeBandName(item.band_id);
+
+      if (!grouped[normalized]) {
+        grouped[normalized] = {
+          displayName: item.band_id, // Use first occurrence for display
+          items: []
+        };
       }
-      grouped[item.band_id].push(item);
+
+      grouped[normalized].items.push(item);
     });
     return grouped;
+  };
+
+  const handleViewSchedule = async (bandName) => {
+    try {
+      const normalized = normalizeBandName(bandName);
+
+      // Get all performances for this band
+      const allPerformances = await db.performances.toArray();
+      const bandPerformances = allPerformances.filter(perf =>
+        normalizeBandName(perf.band_id) === normalized
+      );
+
+      // Sort by date/time
+      bandPerformances.sort((a, b) => {
+        const dateCompare = a.date.localeCompare(b.date);
+        if (dateCompare !== 0) return dateCompare;
+        return a.time.localeCompare(b.time);
+      });
+
+      setViewingSchedule(bandName);
+      setSchedulePerformances(bandPerformances);
+
+    } catch (error) {
+      console.error('Error loading schedule:', error);
+    }
+  };
+
+  const closeScheduleModal = () => {
+    setViewingSchedule(null);
+    setSchedulePerformances([]);
+  };
+
+  const formatDate = (dateString) => {
+    const date = new Date(dateString + 'T00:00:00');
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric'
+    });
+  };
+
+  const formatTime = (timeString) => {
+    if (!timeString) return '';
+    const [hours, minutes] = timeString.split(':');
+    const hour = parseInt(hours);
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const hour12 = hour % 12 || 12;
+    return `${hour12}:${minutes} ${ampm}`;
   };
 
   const getFilteredItems = useCallback(() => {
@@ -522,6 +580,19 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       padding: '4px 10px',
       borderRadius: '3px'
     },
+    scheduleIcon: {
+      background: 'transparent',
+      border: 'none',
+      fontSize: '18px',
+      cursor: 'pointer',
+      padding: '4px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'transform 0.2s',
+      minWidth: '0',
+      minHeight: '0'
+    },
     bandItems: {
       borderTop: '1px solid #3a3a3a'
     },
@@ -564,6 +635,95 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       animation: badge.pulse ? 'pulse 2s ease-in-out infinite' : 'none',
       boxShadow: badge.pulse ? `0 0 12px ${badge.bg}` : 'none'
     }),
+    scheduleModalOverlay: {
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.85)',
+      zIndex: 1500,
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
+    },
+    scheduleModalCard: {
+      background: '#2d2d2d',
+      borderRadius: '12px',
+      padding: '24px',
+      maxWidth: '400px',
+      width: '100%',
+      maxHeight: '80vh',
+      overflowY: 'auto',
+      border: '2px solid #ffa500'
+    },
+    scheduleModalHeader: {
+      marginBottom: '20px',
+      paddingBottom: '16px',
+      borderBottom: '2px solid #3a3a3a'
+    },
+    scheduleModalTitle: {
+      margin: 0,
+      fontSize: '18px',
+      fontWeight: '700',
+      color: '#ffa500',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
+    scheduleModalContent: {
+      marginBottom: '20px'
+    },
+    emptySchedule: {
+      padding: '40px 20px',
+      textAlign: 'center',
+      color: '#888',
+      fontSize: '14px'
+    },
+    schedulePerformanceCard: {
+      padding: '12px',
+      marginBottom: '12px',
+      background: '#1a1a1a',
+      borderRadius: '6px',
+      border: '1px solid #3a3a3a',
+      borderLeft: '4px solid #ffa500'
+    },
+    schedulePerfDate: {
+      fontSize: '12px',
+      color: '#888',
+      marginBottom: '8px',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      fontWeight: '600'
+    },
+    schedulePerfDetails: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center'
+    },
+    schedulePerfLocation: {
+      fontSize: '15px',
+      color: '#ffa500',
+      fontWeight: '600'
+    },
+    schedulePerfTime: {
+      fontSize: '14px',
+      color: '#ccc',
+      fontWeight: '600'
+    },
+    scheduleModalClose: {
+      width: '100%',
+      padding: '14px',
+      background: '#2d2d2d',
+      color: '#ffa500',
+      border: '2px solid #ffa500',
+      borderRadius: '6px',
+      fontSize: '14px',
+      fontWeight: '700',
+      cursor: 'pointer',
+      textTransform: 'uppercase',
+      letterSpacing: '1px'
+    },
     bulkActions: {
       background: '#2d2d2d',
       padding: '16px',
@@ -917,15 +1077,27 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       )}
 
       {/* Band Groups */}
-      {Object.entries(groupedItems).map(([bandName, items]) => (
-        <div key={bandName} style={styles.bandGroup}>
-          <div style={styles.bandHeader} onClick={() => toggleBand(bandName)}>
-            <h3 style={styles.bandName}>{bandName}</h3>
-            <div style={styles.bandCount}>{items.length} Items</div>
+      {Object.entries(groupedItems).map(([normalizedKey, group]) => (
+        <div key={normalizedKey} style={styles.bandGroup}>
+          <div style={styles.bandHeader} onClick={() => toggleBand(normalizedKey)}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <h3 style={styles.bandName}>{group.displayName}</h3>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleViewSchedule(group.displayName);
+                }}
+                style={styles.scheduleIcon}
+                title="View performance schedule"
+              >
+                📅
+              </button>
+            </div>
+            <div style={styles.bandCount}>{group.items.length} Items</div>
           </div>
-          {expandedBands[bandName] && (
+          {expandedBands[normalizedKey] && (
             <div style={styles.bandItems}>
-              {items.map(item => {
+              {group.items.map(item => {
                 const badge = getStatusBadge(item);
                 return (
                   <div
@@ -1125,6 +1297,50 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
                 Close
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Modal */}
+      {viewingSchedule && (
+        <div style={styles.scheduleModalOverlay} onClick={closeScheduleModal}>
+          <div style={styles.scheduleModalCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.scheduleModalHeader}>
+              <h3 style={styles.scheduleModalTitle}>
+                📅 {viewingSchedule} Schedule
+              </h3>
+            </div>
+
+            <div style={styles.scheduleModalContent}>
+              {schedulePerformances.length === 0 ? (
+                <div style={styles.emptySchedule}>
+                  No scheduled performances for this band
+                </div>
+              ) : (
+                schedulePerformances.map((perf, idx) => {
+                  const location = locations.find(l => String(l.id) === String(perf.location_id));
+                  return (
+                    <div key={idx} style={styles.schedulePerformanceCard}>
+                      <div style={styles.schedulePerfDate}>
+                        {formatDate(perf.date)}
+                      </div>
+                      <div style={styles.schedulePerfDetails}>
+                        <div style={styles.schedulePerfLocation}>
+                          {location?.name || 'Unknown Location'}
+                        </div>
+                        <div style={styles.schedulePerfTime}>
+                          {formatTime(perf.time)}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+
+            <button onClick={closeScheduleModal} style={styles.scheduleModalClose}>
+              Close
+            </button>
           </div>
         </div>
       )}

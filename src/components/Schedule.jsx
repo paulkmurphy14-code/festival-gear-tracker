@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useDatabase } from '../contexts/DatabaseContext';
 import { useRole } from '../hooks/useRole';
+import { normalizeBandName } from '../utils/bandNormalization';
 
 export default function Schedule() {
   const db = useDatabase();
@@ -23,6 +24,16 @@ export default function Schedule() {
   const [validatedRows, setValidatedRows] = useState([]);
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Gear modal state
+  const [showStageGearModal, setShowStageGearModal] = useState(false);
+  const [showBandGearModal, setShowBandGearModal] = useState(false);
+  const [selectedStage, setSelectedStage] = useState(null);
+  const [selectedBand, setSelectedBand] = useState(null);
+  const [stageGear, setStageGear] = useState({}); // Changed to object for band grouping
+  const [bandGear, setBandGear] = useState([]);
+  const [modalLocations, setModalLocations] = useState([]); // Locations for modal status display
+  const [expandedStageGearBands, setExpandedStageGearBands] = useState({});
 
   // Load schedule data
   const loadSchedule = useCallback(async () => {
@@ -55,7 +66,37 @@ export default function Schedule() {
 
   useEffect(() => {
     loadSchedule();
+
+    // Refresh every 60 seconds to keep data fresh
+    const interval = setInterval(loadSchedule, 60000);
+
+    // Refresh when page gains focus
+    const handleFocus = () => {
+      loadSchedule();
+    };
+    window.addEventListener('focus', handleFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', handleFocus);
+    };
   }, [loadSchedule]);
+
+  // Helper: Get gear status/location (matches GearList display logic)
+  const getGearStatus = (gear, allLocations) => {
+    if (gear.missing_status === 'missing') {
+      return 'MISSING ⚠️';
+    } else if (gear.in_transit) {
+      return 'IN TRANSIT';
+    } else if (gear.checked_out) {
+      return 'CHECKED OUT';
+    } else if (gear.current_location_id) {
+      const location = allLocations.find(loc => String(loc.id) === String(gear.current_location_id));
+      return location?.name || 'Unknown';
+    } else {
+      return 'NO LOCATION';
+    }
+  };
 
   // Helper: Group performances by day
   const groupByDay = (perfs) => {
@@ -129,11 +170,9 @@ export default function Schedule() {
       errors.push(`Row ${rowNum}: Band name is required`);
     }
 
-    // Validate stage exists
-    const stageNameLower = stageName.toLowerCase();
-    const location = locations.find(loc => loc.name.toLowerCase() === stageNameLower);
-    if (!location) {
-      errors.push(`Row ${rowNum}: Stage "${stageName}" not found`);
+    // Validate stage name exists
+    if (!stageName) {
+      errors.push(`Row ${rowNum}: Stage name is required`);
     }
 
     // Validate date format DD-MM-YYYY
@@ -170,8 +209,7 @@ export default function Schedule() {
       valid: true,
       data: {
         band_id: bandName.trim(),
-        location_id: location.id,
-        locationName: location.name,
+        stageName: stageName,
         date: `${year}-${month}-${day}`,
         time: timeStr
       }
@@ -300,6 +338,85 @@ export default function Schedule() {
     try {
       setLoading(true);
 
+      // Extract unique bands from validated rows
+      const bandNames = new Set();
+      validatedRows.forEach(row => {
+        if (row.band_id && row.band_id.trim()) {
+          bandNames.add(row.band_id.trim());
+        }
+      });
+
+      // Update band registry
+      // First, delete existing schedule-sourced bands
+      const existingBands = await db.bands.toArray();
+      for (const band of existingBands) {
+        if (band.source === 'schedule') {
+          await db.bands.delete(band.id);
+        }
+      }
+
+      // Add new bands from schedule
+      for (const bandName of Array.from(bandNames)) {
+        await db.bands.add({
+          name: bandName,
+          name_normalized: normalizeBandName(bandName),
+          created_at: new Date(),
+          source: 'schedule'
+        });
+      }
+
+      // Extract unique stages from validated rows
+      const stageNames = new Set();
+      validatedRows.forEach(row => {
+        if (row.stageName && row.stageName.trim()) {
+          stageNames.add(row.stageName.trim());
+        }
+      });
+
+      // Update stage/location registry
+      // First, delete existing schedule-sourced stages
+      const existingLocations = await db.locations.toArray();
+      for (const location of existingLocations) {
+        if (location.type === 'stage') {
+          await db.locations.delete(location.id);
+        }
+      }
+
+      // Define color palette for auto-created stages
+      const colors = ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#ffeaa7', '#dfe6e9', '#a29bfe', '#fd79a8'];
+      let colorIndex = 0;
+
+      // Create stages from CSV
+      const createdStages = [];
+      for (const stageName of Array.from(stageNames)) {
+        const newId = await db.locations.add({
+          name: stageName,
+          type: 'stage',
+          color: colors[colorIndex % colors.length],
+          emoji: ''
+        });
+
+        createdStages.push({ name: stageName, id: newId });
+        colorIndex++;
+      }
+
+      // Reload all locations to get IDs for mapping
+      const allLocations = await db.locations.toArray();
+
+      // Map validated rows to include location_id
+      const performancesWithLocationIds = validatedRows.map(row => {
+        const location = allLocations.find(loc =>
+          loc.name.toLowerCase() === row.stageName.toLowerCase()
+        );
+
+        return {
+          band_id: row.band_id,
+          location_id: location.id,
+          date: row.date,
+          time: row.time
+        };
+      });
+
       // Delete all existing performances
       const existingPerfs = await db.performances.toArray();
       for (const perf of existingPerfs) {
@@ -307,7 +424,7 @@ export default function Schedule() {
       }
 
       // Add new performances
-      for (const perf of validatedRows) {
+      for (const perf of performancesWithLocationIds) {
         await db.performances.add({
           band_id: perf.band_id,
           location_id: perf.location_id,
@@ -316,7 +433,7 @@ export default function Schedule() {
         });
       }
 
-      setMessage(`✓ Schedule imported: ${validatedRows.length} performances added`);
+      setMessage(`✓ Schedule imported: ${validatedRows.length} performances from ${bandNames.size} bands across ${stageNames.size} stages`);
       setTimeout(() => setMessage(''), 5000);
 
       // Close modal and refresh
@@ -331,6 +448,120 @@ export default function Schedule() {
       console.error('Import error:', error);
       setMessage('❌ Error importing schedule: ' + error.message);
       setLoading(false);
+    }
+  };
+
+  // Load gear for a specific stage
+  const handleStageClick = async (locationId, locationName) => {
+    try {
+      console.log('🎸 [STAGE MODAL] Opening stage modal for:', locationName, 'ID:', locationId);
+
+      const allGear = await db.gear.toArray();
+      const allLocations = await db.locations.toArray();
+
+      console.log('🎸 [STAGE MODAL] Total gear loaded:', allGear.length);
+      console.log('🎸 [STAGE MODAL] All gear locations:', allGear.map(g => ({
+        id: g.id,
+        desc: g.description,
+        band: g.band_id,
+        location_id: g.current_location_id
+      })));
+
+      // Filter gear: must be at this location AND not have status flags that override location
+      const gearAtStage = allGear.filter(g => {
+        // Must have this location as current_location_id
+        if (String(g.current_location_id) !== String(locationId)) return false;
+
+        // Exclude if status flags override the location
+        if (g.missing_status === 'missing') return false;
+        if (g.in_transit) return false;
+        if (g.checked_out) return false;
+
+        return true;
+      });
+
+      console.log('🎸 [STAGE MODAL] Gear at this stage:', gearAtStage.length);
+      console.log('🎸 [STAGE MODAL] Filtered gear:', gearAtStage.map(g => ({
+        id: g.id,
+        desc: g.description,
+        band: g.band_id,
+        location_id: g.current_location_id,
+        in_transit: g.in_transit,
+        checked_out: g.checked_out,
+        missing: g.missing_status
+      })));
+
+      // Group by band
+      const groupedByBand = {};
+      gearAtStage.forEach(gear => {
+        if (!groupedByBand[gear.band_id]) {
+          groupedByBand[gear.band_id] = [];
+        }
+        groupedByBand[gear.band_id].push(gear);
+      });
+
+      console.log('🎸 [STAGE MODAL] Grouped by band:', Object.keys(groupedByBand));
+
+      setStageGear(groupedByBand);
+      setSelectedStage(locationName);
+      setModalLocations(allLocations);
+      setShowStageGearModal(true);
+
+      // Initialize all bands as collapsed
+      const initialExpanded = {};
+      Object.keys(groupedByBand).forEach(band => {
+        initialExpanded[band] = false;
+      });
+      setExpandedStageGearBands(initialExpanded);
+    } catch (error) {
+      console.error('Error loading stage gear:', error);
+    }
+  };
+
+  // Load gear for a specific band
+  const handleBandClick = async (bandName) => {
+    try {
+      console.log('🎤 [BAND MODAL] Opening band modal for:', bandName);
+
+      const allGear = await db.gear.toArray();
+      const allLocations = await db.locations.toArray();
+
+      console.log('🎤 [BAND MODAL] Total gear loaded:', allGear.length);
+      console.log('🎤 [BAND MODAL] Total locations loaded:', allLocations.length);
+      console.log('🎤 [BAND MODAL] Available locations:', allLocations.map(l => ({
+        id: l.id,
+        name: l.name,
+        type: l.type
+      })));
+
+      // Find gear for this band (using normalized matching)
+      const normalizedBandName = normalizeBandName(bandName);
+      console.log('🎤 [BAND MODAL] Normalized band name:', normalizedBandName);
+
+      const gearForBand = allGear.filter(g =>
+        normalizeBandName(g.band_id) === normalizedBandName
+      );
+      console.log('🎤 [BAND MODAL] Gear found for band:', gearForBand.length);
+      console.log('🎤 [BAND MODAL] Raw gear data:', gearForBand.map(g => ({
+        id: g.id,
+        desc: g.description,
+        current_location_id: g.current_location_id,
+        in_transit: g.in_transit,
+        checked_out: g.checked_out,
+        missing_status: g.missing_status
+      })));
+
+      console.log('🎤 [BAND MODAL] Gear statuses:', gearForBand.map(g => ({
+        id: g.id,
+        status: getGearStatus(g, allLocations)
+      })));
+
+      setBandGear(gearForBand);
+      setSelectedBand(bandName);
+      setModalLocations(allLocations);
+      setShowBandGearModal(true);
+    } catch (error) {
+      console.error('Error loading band gear:', error);
     }
   };
 
@@ -464,13 +695,6 @@ export default function Schedule() {
       alignItems: 'center',
       gap: '12px'
     },
-    dayCount: {
-      fontSize: '12px',
-      color: '#888',
-      background: '#1a1a1a',
-      padding: '4px 10px',
-      borderRadius: '3px'
-    },
     dayContent: {
       paddingLeft: '16px',
       marginBottom: '12px'
@@ -495,13 +719,6 @@ export default function Schedule() {
       display: 'flex',
       alignItems: 'center',
       gap: '12px'
-    },
-    stageCount: {
-      fontSize: '11px',
-      color: '#888',
-      background: '#1a1a1a',
-      padding: '3px 8px',
-      borderRadius: '3px'
     },
     stageContent: {
       paddingLeft: '16px',
@@ -919,7 +1136,6 @@ export default function Schedule() {
                 <span>{isExpanded ? '▼' : '▶'}</span>
                 <span>Day {dayIndex + 1} - {formatDateDisplay(dateKey)}</span>
               </div>
-              <span style={styles.dayCount}>({dayPerformances.length})</span>
             </div>
 
             {isExpanded && (
@@ -933,13 +1149,34 @@ export default function Schedule() {
                     <div key={stageId}>
                       <div
                         style={styles.stageHeader(locationInfo.color)}
-                        onClick={() => toggleStage(dateKey, stageId)}
                       >
-                        <div style={styles.stageName}>
+                        <div
+                          style={{ ...styles.stageName, flex: 1, cursor: 'pointer' }}
+                          onClick={() => toggleStage(dateKey, stageId)}
+                        >
                           <span>{isStageExpanded ? '▼' : '▶'}</span>
                           <span>{locationInfo.name}</span>
                         </div>
-                        <span style={styles.stageCount}>({stagePerformances.length})</span>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleStageClick(stageId, locationInfo.name);
+                          }}
+                          style={{
+                            background: 'rgba(255, 165, 0, 0.2)',
+                            border: '1px solid #ffa500',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            color: '#ffa500',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          🎸 Gear
+                        </button>
                       </div>
 
                       {isStageExpanded && (
@@ -949,7 +1186,16 @@ export default function Schedule() {
                               <span style={styles.performanceTime}>
                                 {formatTime(perf.time)}
                               </span>
-                              <span style={styles.performanceBand}>
+                              <span
+                                style={{
+                                  ...styles.performanceBand,
+                                  cursor: 'pointer',
+                                  textDecoration: 'underline',
+                                  textDecorationColor: 'rgba(255, 165, 0, 0.4)',
+                                  textUnderlineOffset: '2px'
+                                }}
+                                onClick={() => handleBandClick(perf.band_id)}
+                              >
                                 {perf.band_id}
                               </span>
                             </div>
@@ -1015,6 +1261,345 @@ export default function Schedule() {
                 ✗ Cancel
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Stage Gear Modal */}
+      {showStageGearModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '20px'
+          }}
+          onClick={() => setShowStageGearModal(false)}
+        >
+          <div
+            style={{
+              background: '#2d2d2d',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              border: '2px solid #ffa500'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #3a3a3a'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#ffa500',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                Gear at {selectedStage}
+              </h3>
+            </div>
+
+            {Object.keys(stageGear).length === 0 ? (
+              <div style={{
+                padding: '40px 20px',
+                textAlign: 'center',
+                color: '#888',
+                fontSize: '14px'
+              }}>
+                No gear currently at this location
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#e0e0e0',
+                  marginBottom: '16px',
+                  fontWeight: '600'
+                }}>
+                  {Object.keys(stageGear).length} band(s), {Object.values(stageGear).flat().length} item(s) total:
+                </div>
+
+                {Object.entries(stageGear).map(([bandName, gearItems]) => {
+                  const isExpanded = expandedStageGearBands[bandName];
+                  return (
+                    <div key={bandName} style={{ marginBottom: '12px' }}>
+                      {/* Band Header */}
+                      <div
+                        onClick={() => {
+                          setExpandedStageGearBands(prev => ({
+                            ...prev,
+                            [bandName]: !prev[bandName]
+                          }));
+                        }}
+                        style={{
+                          padding: '12px',
+                          background: '#1a1a1a',
+                          borderRadius: '8px',
+                          border: '2px solid #3a3a3a',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.borderColor = '#ffa500';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.borderColor = '#3a3a3a';
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <span style={{ color: '#ffa500', fontSize: '14px' }}>
+                            {isExpanded ? '▼' : '▶'}
+                          </span>
+                          <span style={{
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            color: '#ffa500'
+                          }}>
+                            {bandName}
+                          </span>
+                        </div>
+                        <span style={{
+                          fontSize: '12px',
+                          color: '#888',
+                          fontWeight: '600'
+                        }}>
+                          ({gearItems.length} item{gearItems.length !== 1 ? 's' : ''})
+                        </span>
+                      </div>
+
+                      {/* Expanded Gear Items */}
+                      {isExpanded && (
+                        <div style={{
+                          marginTop: '8px',
+                          marginLeft: '16px',
+                          paddingLeft: '12px',
+                          borderLeft: '2px solid #3a3a3a'
+                        }}>
+                          {gearItems.map((gear) => (
+                            <div
+                              key={gear.id}
+                              style={{
+                                padding: '8px 12px',
+                                marginBottom: '6px',
+                                background: '#2d2d2d',
+                                borderRadius: '6px',
+                                border: '1px solid #3a3a3a',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                gap: '12px'
+                              }}
+                            >
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  fontSize: '13px',
+                                  color: '#e0e0e0',
+                                  marginBottom: '2px'
+                                }}>
+                                  {gear.description}
+                                </div>
+                                <div style={{
+                                  fontSize: '11px',
+                                  color: '#666'
+                                }}>
+                                  ID: {gear.id}
+                                </div>
+                              </div>
+                              <div style={{
+                                padding: '4px 8px',
+                                background: 'rgba(255, 165, 0, 0.2)',
+                                border: '1px solid #ffa500',
+                                borderRadius: '4px',
+                                fontSize: '10px',
+                                color: '#ffa500',
+                                fontWeight: '600',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                📍 {getGearStatus(gear, modalLocations)}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowStageGearModal(false)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                marginTop: '20px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Band Gear Modal */}
+      {showBandGearModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+            padding: '20px'
+          }}
+          onClick={() => setShowBandGearModal(false)}
+        >
+          <div
+            style={{
+              background: '#2d2d2d',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              border: '2px solid #ffa500'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              marginBottom: '20px',
+              paddingBottom: '16px',
+              borderBottom: '2px solid #3a3a3a'
+            }}>
+              <h3 style={{
+                margin: 0,
+                fontSize: '18px',
+                fontWeight: '700',
+                color: '#ffa500',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}>
+                {selectedBand}'s Gear
+              </h3>
+            </div>
+
+            {bandGear.length === 0 ? (
+              <div style={{
+                padding: '40px 20px',
+                textAlign: 'center',
+                color: '#888',
+                fontSize: '14px'
+              }}>
+                No gear registered for this band
+              </div>
+            ) : (
+              <div>
+                <div style={{
+                  fontSize: '14px',
+                  color: '#e0e0e0',
+                  marginBottom: '16px',
+                  fontWeight: '600'
+                }}>
+                  {bandGear.length} item(s) registered:
+                </div>
+                {bandGear.map((gear) => (
+                  <div
+                    key={gear.id}
+                    style={{
+                      padding: '12px',
+                      marginBottom: '8px',
+                      background: '#1a1a1a',
+                      borderRadius: '8px',
+                      border: '1px solid #3a3a3a',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center'
+                    }}
+                  >
+                    <div>
+                      <div style={{
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: '#e0e0e0',
+                        marginBottom: '4px'
+                      }}>
+                        {gear.description}
+                      </div>
+                      <div style={{
+                        fontSize: '12px',
+                        color: '#888'
+                      }}>
+                        ID: {gear.id}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '6px 12px',
+                      background: 'rgba(255, 165, 0, 0.2)',
+                      border: '1px solid #ffa500',
+                      borderRadius: '6px',
+                      fontSize: '12px',
+                      color: '#ffa500',
+                      fontWeight: '600',
+                      whiteSpace: 'nowrap'
+                    }}>
+                      📍 {getGearStatus(gear, modalLocations)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowBandGearModal(false)}
+              style={{
+                width: '100%',
+                padding: '14px',
+                marginTop: '20px',
+                background: '#2d2d2d',
+                color: '#ffa500',
+                border: '2px solid #ffa500',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer',
+                textTransform: 'uppercase',
+                letterSpacing: '1px'
+              }}
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

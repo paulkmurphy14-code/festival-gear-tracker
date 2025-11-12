@@ -8,6 +8,7 @@ import LocationManager from './components/LocationManager';
 import UserManagement from './components/UserManagement';
 import Messages from './components/Messages';
 import MessageBar from './components/MessageBar';
+import Reminders from './components/Reminders';
 import FestivalSelector from './components/FestivalSelector';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
@@ -95,6 +96,7 @@ function AppContent() {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0, missing: 0 });
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
+  const [activeRemindersCount, setActiveRemindersCount] = useState(0);
   const [invitation, setInvitation] = useState(null);
 
   const loadLocations = useCallback(async () => {
@@ -153,12 +155,25 @@ function AppContent() {
     }
   }, [db, currentUser]);
 
+  const loadActiveRemindersCount = useCallback(async () => {
+    if (!db || !currentUser) return;
+
+    try {
+      const allReminders = await db.reminders.where('userId', '==', currentUser.uid).toArray();
+      const activeCount = allReminders.filter(r => !r.completed).length;
+      setActiveRemindersCount(activeCount);
+    } catch (error) {
+      console.error('Error loading reminders count:', error);
+    }
+  }, [db, currentUser]);
+
 
   useEffect(() => {
     loadLocations();
     loadStatusCounts();
     loadUnreadCount();
-  }, [loadLocations, loadStatusCounts, loadUnreadCount, refreshTrigger]);
+    loadActiveRemindersCount();
+  }, [loadLocations, loadStatusCounts, loadUnreadCount, loadActiveRemindersCount, refreshTrigger]);
 
   const handleScan = useCallback(async (qrData) => {
     if (qrData && qrData.startsWith('GEAR:')) {
@@ -686,6 +701,17 @@ function AppContent() {
                 )}
               </div>
 
+              <div style={styles.homeButton} onClick={() => setActiveTab('reminders')}>
+                <span style={styles.homeButtonIcon}>📝</span>
+                <div style={styles.homeButtonText}>Reminders</div>
+                <div style={styles.homeButtonDesc}>My Tasks</div>
+                {activeRemindersCount > 0 && (
+                  <div style={styles.notificationBadge}>
+                    {activeRemindersCount}
+                  </div>
+                )}
+              </div>
+
               {canBulkUploadCSV && (
                 <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
                   <span style={styles.homeButtonIcon}>📦</span>
@@ -891,6 +917,30 @@ function AppContent() {
               onClick={() => {
                 setActiveTab('home');
                 loadUnreadCount(); // Refresh count when returning home
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
+            >
+              🏠
+            </button>
+          </>
+        )}
+
+        {activeTab === 'reminders' && (
+          <>
+            <Reminders key={refreshTrigger} />
+            <button
+              style={styles.floatingBackButton}
+              onClick={() => {
+                setActiveTab('home');
+                loadActiveRemindersCount(); // Refresh count when returning home
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.transform = 'scale(1.1)';
