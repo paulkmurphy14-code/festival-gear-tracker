@@ -27,6 +27,7 @@ export default function StowagePlan() {
   const [expandedBands, setExpandedBands] = useState({});
   const [stagedItems, setStagedItems] = useState([]);
   const [touchDragItem, setTouchDragItem] = useState(null); // Track item being touch-dragged
+  const [touchPosition, setTouchPosition] = useState(null); // Track last touch position
 
   const loadData = useCallback(async () => {
     if (!db) return;
@@ -596,7 +597,8 @@ export default function StowagePlan() {
       transition: 'all 0.2s',
       minHeight: '44px',
       display: 'flex',
-      alignItems: 'center'
+      alignItems: 'center',
+      touchAction: 'none'
     },
     gearCheckboxSelected: {
       background: '#ffa500',
@@ -991,37 +993,70 @@ export default function StowagePlan() {
                                   e.dataTransfer.effectAllowed = 'move';
                                 }}
                                 onTouchStart={(e) => {
+                                  console.log('🎯 Touch start on:', gearItem.description);
                                   setTouchDragItem(gearItem);
+                                  const touch = e.touches[0];
+                                  setTouchPosition({ x: touch.clientX, y: touch.clientY });
                                   e.currentTarget.style.opacity = '0.6';
                                 }}
+                                onTouchMove={(e) => {
+                                  // Track the touch position as finger moves
+                                  const touch = e.touches[0];
+                                  setTouchPosition({ x: touch.clientX, y: touch.clientY });
+                                }}
                                 onTouchEnd={(e) => {
-                                  // Get the touch end position
-                                  const touch = e.changedTouches[0];
-                                  const x = touch.clientX;
-                                  const y = touch.clientY;
+                                  console.log('🎯 Touch end');
 
-                                  // Find what element is under the touch point
-                                  const elementUnder = document.elementFromPoint(x, y);
+                                  // Use last known position from touchmove, or fall back to changedTouches
+                                  let x, y;
+                                  if (touchPosition) {
+                                    x = touchPosition.x;
+                                    y = touchPosition.y;
+                                  } else {
+                                    const touch = e.changedTouches[0];
+                                    x = touch.clientX;
+                                    y = touch.clientY;
+                                  }
 
-                                  // Check if it's the canvas or a child of the canvas
-                                  const canvas = elementUnder?.closest('[data-stowage-canvas="true"]');
+                                  console.log(`🎯 Touch position: (${x}, ${y})`);
+
+                                  // Find canvas element directly by data attribute
+                                  const canvas = document.querySelector('[data-stowage-canvas="true"]');
 
                                   if (canvas && touchDragItem) {
-                                    // Calculate position relative to canvas
                                     const rect = canvas.getBoundingClientRect();
-                                    const dropX = x - rect.left;
-                                    const dropY = y - rect.top;
+                                    console.log('🎯 Canvas bounds:', rect);
 
-                                    // Convert to percentages (same logic as in StowageCanvas)
-                                    const xPercent = (dropX / rect.width) * 100;
-                                    const yPercent = (dropY / rect.height) * 100;
+                                    // Check if touch position is within canvas bounds
+                                    const isOverCanvas = (
+                                      x >= rect.left &&
+                                      x <= rect.right &&
+                                      y >= rect.top &&
+                                      y <= rect.bottom
+                                    );
 
-                                    // Call the drop handler
-                                    handleStagedItemDrop(touchDragItem, { xPercent, yPercent });
+                                    console.log('🎯 Is over canvas:', isOverCanvas);
+
+                                    if (isOverCanvas) {
+                                      console.log('🎯 Dropping on canvas!');
+                                      // Calculate position relative to canvas
+                                      const dropX = x - rect.left;
+                                      const dropY = y - rect.top;
+
+                                      // Convert to percentages (same logic as in StowageCanvas)
+                                      const xPercent = (dropX / rect.width) * 100;
+                                      const yPercent = (dropY / rect.height) * 100;
+
+                                      console.log(`🎯 Drop position: ${xPercent}%, ${yPercent}%`);
+
+                                      // Call the drop handler
+                                      handleStagedItemDrop(touchDragItem, { xPercent, yPercent });
+                                    }
                                   }
 
                                   // Clean up
                                   setTouchDragItem(null);
+                                  setTouchPosition(null);
                                   e.currentTarget.style.opacity = '1';
                                 }}
                                 style={{
