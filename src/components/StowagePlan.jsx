@@ -995,6 +995,32 @@ export default function StowagePlan() {
                                   e.currentTarget.style.opacity = '0.6';
                                 }}
                                 onTouchEnd={(e) => {
+                                  // Get the touch end position
+                                  const touch = e.changedTouches[0];
+                                  const x = touch.clientX;
+                                  const y = touch.clientY;
+
+                                  // Find what element is under the touch point
+                                  const elementUnder = document.elementFromPoint(x, y);
+
+                                  // Check if it's the canvas or a child of the canvas
+                                  const canvas = elementUnder?.closest('[data-stowage-canvas="true"]');
+
+                                  if (canvas && touchDragItem) {
+                                    // Calculate position relative to canvas
+                                    const rect = canvas.getBoundingClientRect();
+                                    const dropX = x - rect.left;
+                                    const dropY = y - rect.top;
+
+                                    // Convert to percentages (same logic as in StowageCanvas)
+                                    const xPercent = (dropX / rect.width) * 100;
+                                    const yPercent = (dropY / rect.height) * 100;
+
+                                    // Call the drop handler
+                                    handleStagedItemDrop(touchDragItem, { xPercent, yPercent });
+                                  }
+
+                                  // Clean up
                                   setTouchDragItem(null);
                                   e.currentTarget.style.opacity = '1';
                                 }}

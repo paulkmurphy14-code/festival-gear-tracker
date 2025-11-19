@@ -334,6 +334,7 @@ export default function StowageCanvas({
       <div style={styles.canvasWrapper}>
         <div
           ref={canvasRef}
+          data-stowage-canvas="true"
           style={{
             ...styles.canvas,
             width: `${canvasDimensions.width}px`,
