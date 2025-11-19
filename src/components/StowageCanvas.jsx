@@ -8,6 +8,8 @@ export default function StowageCanvas({
   onItemDelete,
   onStagedDrop,
   stagedItems = [],
+  touchDragItem = null,
+  onTouchDragComplete,
   readonly = false
 }) {
   const canvasRef = useRef(null);
@@ -225,6 +227,32 @@ export default function StowageCanvas({
     onStagedDrop(gearItem, { xPercent, yPercent });
   };
 
+  // Touch drop handler for mobile
+  const handleTouchEnd = (e) => {
+    if (readonly || !onStagedDrop || !touchDragItem) return;
+
+    e.preventDefault();
+    const touch = e.changedTouches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+
+    // Check if touch ended over canvas
+    if (touch.clientX >= rect.left && touch.clientX <= rect.right &&
+        touch.clientY >= rect.top && touch.clientY <= rect.bottom) {
+
+      const dropX = touch.clientX - rect.left;
+      const dropY = touch.clientY - rect.top;
+
+      const { xPercent, yPercent } = pixelsToPercent(dropX, dropY);
+
+      onStagedDrop(touchDragItem, { xPercent, yPercent });
+    }
+
+    // Clean up
+    if (onTouchDragComplete) {
+      onTouchDragComplete();
+    }
+  };
+
 
   const styles = {
     container: {
@@ -316,6 +344,7 @@ export default function StowageCanvas({
           onMouseLeave={handleMouseUp}
           onDragOver={handleDragOver}
           onDrop={handleDrop}
+          onTouchEnd={handleTouchEnd}
         >
           {/* Simplified labels for mobile */}
           <div style={{ ...styles.label, top: '-16px', left: '50%', transform: 'translateX(-50%)', fontSize: '11px' }}>

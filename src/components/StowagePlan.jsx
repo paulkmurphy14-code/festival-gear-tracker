@@ -26,6 +26,7 @@ export default function StowagePlan() {
   const [searchResults, setSearchResults] = useState([]);
   const [expandedBands, setExpandedBands] = useState({});
   const [stagedItems, setStagedItems] = useState([]);
+  const [touchDragItem, setTouchDragItem] = useState(null); // Track item being touch-dragged
 
   const loadData = useCallback(async () => {
     if (!db) return;
@@ -980,6 +981,7 @@ export default function StowagePlan() {
                         <div style={styles.bandGearList}>
                           {bandGear.map(gearItem => {
                             const isStaged = stagedItems.find(si => si.id === gearItem.id);
+                            const isTouchDragging = touchDragItem?.id === gearItem.id;
                             return (
                               <div
                                 key={gearItem.id}
@@ -988,10 +990,19 @@ export default function StowagePlan() {
                                   e.dataTransfer.setData('direct_gear_id', gearItem.id);
                                   e.dataTransfer.effectAllowed = 'move';
                                 }}
+                                onTouchStart={(e) => {
+                                  setTouchDragItem(gearItem);
+                                  e.currentTarget.style.opacity = '0.6';
+                                }}
+                                onTouchEnd={(e) => {
+                                  setTouchDragItem(null);
+                                  e.currentTarget.style.opacity = '1';
+                                }}
                                 style={{
                                   ...styles.gearCheckbox,
                                   ...(isStaged ? styles.gearCheckboxSelected : {}),
-                                  cursor: 'grab'
+                                  cursor: 'grab',
+                                  opacity: isTouchDragging ? 0.6 : 1
                                 }}
                                 onClick={() => toggleStageItem(gearItem)}
                               >
@@ -1053,6 +1064,8 @@ export default function StowagePlan() {
             onItemMove={canManageLocations ? handleItemMove : null}
             onStagedDrop={canManageLocations ? handleStagedItemDrop : null}
             stagedItems={stagedItems}
+            touchDragItem={touchDragItem}
+            onTouchDragComplete={() => setTouchDragItem(null)}
             readonly={!canManageLocations}
           />
         </>
