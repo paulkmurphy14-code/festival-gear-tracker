@@ -309,6 +309,86 @@ export function getFirestoreDb(festivalId) {
           }
         };
       }
+    },
+
+    containers: {
+      async add(data) {
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/containers`), data);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocsFromServer(collection(db, `festivals/${festivalId}/containers`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async get(id) {
+        const docRef = doc(db, `festivals/${festivalId}/containers`, String(id));
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+      },
+
+      async update(id, data) {
+        await updateDoc(doc(db, `festivals/${festivalId}/containers`, String(id)), data);
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/containers`, String(id)));
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/containers`),
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
+      }
+    },
+
+    stowage_items: {
+      async add(data) {
+        // Remove id field before saving (Firestore generates its own ID)
+        const { id, ...dataWithoutId } = data;
+        const docRef = await addDoc(collection(db, `festivals/${festivalId}/stowage_items`), dataWithoutId);
+        return docRef.id;
+      },
+
+      async toArray() {
+        const snapshot = await getDocsFromServer(collection(db, `festivals/${festivalId}/stowage_items`));
+        return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      },
+
+      async get(id) {
+        const docRef = doc(db, `festivals/${festivalId}/stowage_items`, String(id));
+        const docSnap = await getDoc(docRef);
+        return docSnap.exists() ? { id: docSnap.id, ...docSnap.data() } : null;
+      },
+
+      async update(id, data) {
+        await updateDoc(doc(db, `festivals/${festivalId}/stowage_items`, String(id)), data);
+      },
+
+      async delete(id) {
+        await deleteDoc(doc(db, `festivals/${festivalId}/stowage_items`, String(id)));
+      },
+
+      where(field, operator, value) {
+        return {
+          async toArray() {
+            const q = query(
+              collection(db, `festivals/${festivalId}/stowage_items`),
+              fbWhere(field, operator === 'equals' ? '==' : operator, value)
+            );
+            const snapshot = await getDocs(q);
+            return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          }
+        };
+      }
     }
   };
 }

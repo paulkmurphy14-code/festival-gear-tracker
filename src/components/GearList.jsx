@@ -109,6 +109,41 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
     }
   };
 
+  const handleMarkOnStage = async (item) => {
+    const confirmed = window.confirm(
+      `Mark ${item.description} as ON STAGE?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await db.gear.update(item.id, {
+        on_stage: !item.on_stage,
+        lastUpdated: new Date()
+      });
+
+      await db.scans.add({
+        gear_id: item.id,
+        location_id: item.current_location_id,
+        timestamp: new Date(),
+        synced: false,
+        user_id: 'manual_action',
+        user_email: currentUser?.email || 'Unknown user',
+        action: !item.on_stage ? 'mark_on_stage' : 'unmark_on_stage'
+      });
+
+      loadData();
+      const updatedItem = await db.gear.get(item.id);
+      if (updatedItem) {
+        setSelectedItemDetail(updatedItem);
+      }
+      onDataChange?.();
+    } catch (error) {
+      console.error('Error marking item on stage:', error);
+      alert('Error updating item status');
+    }
+  };
+
   const handleReportMissing = async (item) => {
     const confirmed = window.confirm(
       `Are you sure ${item.description} is missing?\n\nThis will alert all users to help find it.`
@@ -211,6 +246,7 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
       const updateData = {
         current_location_id: locationId,
         in_transit: false,
+        on_stage: false,
         checked_out: false,
         lastUpdated: new Date()
       };
@@ -504,11 +540,13 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
   };
 
   const getStatusBadge = (item) => {
-    // Priority order: Missing > Transit > Checked Out > Active
+    // Priority order: Missing > Transit > On Stage > Checked Out > Active
     if (item.missing_status === 'missing') {
       return { text: 'MISSING ⚠️', color: '#ff9800', bg: 'rgba(255, 152, 0, 0.2)', border: '#f57c00', pulse: true };
     } else if (item.in_transit) {
       return { text: 'IN TRANSIT', color: '#ff6b6b', bg: 'rgba(244, 67, 54, 0.2)', border: '#f44336', pulse: true };
+    } else if (item.on_stage) {
+      return { text: 'ON STAGE 🎸', color: '#ffa500', bg: 'rgba(255, 165, 0, 0.2)', border: '#ffa500', pulse: true };
     } else if (item.checked_out) {
       return { text: 'CHECKED OUT', color: '#888', bg: 'rgba(120, 120, 120, 0.15)', border: '#666', pulse: false };
     } else if (item.current_location_id) {
@@ -1255,25 +1293,46 @@ export default function GearList({ locationColors, currentUser, onDataChange }) 
                   ✓ I Found It
                 </button>
               ) : (
-                <button
-                  onClick={() => handleReportMissing(selectedItemDetail)}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    background: '#2d2d2d',
-                    color: '#ff9800',
-                    border: '2px solid #ff9800',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    fontSize: '13px',
-                    fontWeight: '700',
-                    textTransform: 'uppercase',
-                    letterSpacing: '1px',
-                    marginBottom: '8px'
-                  }}
-                >
-                  ⚠️ Report Missing
-                </button>
+                <>
+                  <button
+                    onClick={() => handleMarkOnStage(selectedItemDetail)}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: selectedItemDetail.on_stage ? '#2d2d2d' : '#ffa500',
+                      color: selectedItemDetail.on_stage ? '#ffa500' : '#1a1a1a',
+                      border: selectedItemDetail.on_stage ? '2px solid #ffa500' : 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    {selectedItemDetail.on_stage ? '✓ Remove from Stage' : '🎸 Mark On Stage'}
+                  </button>
+                  <button
+                    onClick={() => handleReportMissing(selectedItemDetail)}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      background: '#2d2d2d',
+                      color: '#ff9800',
+                      border: '2px solid #ff9800',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px',
+                      marginBottom: '8px'
+                    }}
+                  >
+                    ⚠️ Report Missing
+                  </button>
+                </>
               )}
 
               {/* Destructive Actions */}

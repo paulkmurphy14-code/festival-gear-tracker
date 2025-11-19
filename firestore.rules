@@ -108,6 +108,18 @@ service cloud.firestore {
         allow update: if belongsToFestival(festivalId) && resource.data.userId == request.auth.uid;
         allow delete: if belongsToFestival(festivalId) && resource.data.userId == request.auth.uid;
       }
+
+      // Containers collection - Admin/Owner can write, all can read
+      match /containers/{containerId} {
+        allow read: if belongsToFestival(festivalId);
+        allow write: if isAdminOrOwner(festivalId);
+      }
+
+      // Stowage items collection - Admin/Owner can write, all can read
+      match /stowage_items/{stowageId} {
+        allow read: if belongsToFestival(festivalId);
+        allow write: if isAdminOrOwner(festivalId);
+      }
     }
   }
 }

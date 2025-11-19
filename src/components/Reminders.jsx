@@ -22,6 +22,8 @@ export default function Reminders() {
   const [filterStatus, setFilterStatus] = useState('active'); // active, completed, all
   const [bands, setBands] = useState([]);
   const [gear, setGear] = useState([]);
+  const [locations, setLocations] = useState([]);
+  const [expandedGear, setExpandedGear] = useState({}); // Track which reminders have gear expanded
 
   const loadReminders = useCallback(async () => {
     if (!currentUser) return;
@@ -65,8 +67,10 @@ export default function Reminders() {
     try {
       const bandsData = await db.bands.toArray();
       const gearData = await db.gear.toArray();
+      const locationsData = await db.locations.toArray();
       setBands(bandsData);
       setGear(gearData);
+      setLocations(locationsData);
     } catch (error) {
       console.error('Error loading bands and gear:', error);
     }
@@ -395,6 +399,22 @@ export default function Reminders() {
       textTransform: 'uppercase',
       letterSpacing: '0.5px'
     },
+    gearToggle: {
+      padding: '8px 12px',
+      background: 'rgba(120, 144, 156, 0.15)',
+      borderRadius: '6px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      transition: 'background 0.2s'
+    },
+    gearDetails: {
+      padding: '12px',
+      marginTop: '8px',
+      background: 'rgba(120, 144, 156, 0.1)',
+      borderRadius: '6px',
+      borderLeft: '3px solid #78909c'
+    },
     emptyState: {
       padding: '60px 20px',
       textAlign: 'center',
@@ -550,7 +570,7 @@ export default function Reminders() {
       {filteredReminders.length === 0 ? (
         <div style={styles.emptyState}>
           <div style={styles.emptyIcon}>
-            {filterStatus === 'completed' ? '✓' : '📝'}
+            {filterStatus === 'completed' ? '✓' : '⏰'}
           </div>
           <div>
             {filterStatus === 'completed'
@@ -609,12 +629,6 @@ export default function Reminders() {
                   </span>
                 )}
 
-                {relatedGearItem && (
-                  <span style={styles.metaBadge('#78909c', 'rgba(96, 125, 139, 0.2)')}>
-                    📦 {relatedGearItem.description} #{String(relatedGearItem.display_id || '0000').padStart(4, '0')}
-                  </span>
-                )}
-
                 <button
                   onClick={() => handleDeleteReminder(reminder.id)}
                   style={styles.deleteButton}
@@ -622,6 +636,45 @@ export default function Reminders() {
                   Delete
                 </button>
               </div>
+
+              {/* Collapsible Related Gear */}
+              {relatedGearItem && (
+                <div style={{ marginTop: '12px' }}>
+                  <div
+                    onClick={() => setExpandedGear(prev => ({ ...prev, [reminder.id]: !prev[reminder.id] }))}
+                    style={styles.gearToggle}
+                  >
+                    <span style={{ fontSize: '14px', marginRight: '6px' }}>
+                      {expandedGear[reminder.id] ? '▼' : '▶'}
+                    </span>
+                    <span style={{ fontSize: '14px', fontWeight: '600', color: '#78909c' }}>
+                      📦 Related Gear
+                    </span>
+                  </div>
+                  {expandedGear[reminder.id] && (
+                    <div style={styles.gearDetails}>
+                      <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '4px' }}>
+                        <strong>Item:</strong> {relatedGearItem.description}
+                      </div>
+                      <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '4px' }}>
+                        <strong>ID:</strong> #{String(relatedGearItem.display_id || '0000').padStart(4, '0')}
+                      </div>
+                      {relatedGearItem.band_id && (
+                        <div style={{ fontSize: '13px', color: '#ccc', marginBottom: '4px' }}>
+                          <strong>Band:</strong> {relatedGearItem.band_id}
+                        </div>
+                      )}
+                      {relatedGearItem.current_location_id && (
+                        <div style={{ fontSize: '13px', color: '#ccc' }}>
+                          <strong>Location:</strong> {
+                            locations.find(loc => String(loc.id) === String(relatedGearItem.current_location_id))?.name || 'Unknown'
+                          }
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })

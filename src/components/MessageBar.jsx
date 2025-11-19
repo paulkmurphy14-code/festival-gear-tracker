@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { useDatabase } from '../contexts/DatabaseContext';
 
-export default function MessageBar({ statusCounts, onMessageClick }) {
+export default function MessageBar({ statusCounts, onMessageClick, activeRemindersCount }) {
   const { currentUser } = useAuth();
   const db = useDatabase();
   const [messages, setMessages] = useState([]);
@@ -69,8 +69,18 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
         };
       }
 
+      // Add active reminders as a category if there are any
+      if (activeRemindersCount > 0) {
+        groupedMessages['reminders'] = {
+          category: 'reminders',
+          count: activeRemindersCount,
+          messages: [],
+          isSynthetic: true
+        };
+      }
+
       // Convert to array and sort by priority
-      const priorityOrder = { urgent: 1, missing: 2, alert: 3, announcement: 4, info: 5 };
+      const priorityOrder = { urgent: 1, missing: 2, alert: 3, reminders: 4, announcement: 5, info: 6 };
       const messageGroups = Object.values(groupedMessages).sort((a, b) => {
         const aPriority = priorityOrder[a.category] || 99;
         const bPriority = priorityOrder[b.category] || 99;
@@ -81,7 +91,7 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
     } catch (error) {
       console.error('Error loading messages for bar:', error);
     }
-  }, [db, currentUser, statusCounts.missing]);
+  }, [db, currentUser, statusCounts.missing, activeRemindersCount]);
 
   useEffect(() => {
     loadMessages();
@@ -93,6 +103,7 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       urgent: '🚨',
       missing: '⚠️',
       alert: '⚠️',
+      reminders: '⏰',
       announcement: '📢',
       info: 'ℹ️'
     };
@@ -105,6 +116,7 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       urgent: 'rgba(244, 67, 54, 0.25)',
       missing: 'rgba(255, 193, 7, 0.25)',
       alert: 'rgba(255, 193, 7, 0.25)',
+      reminders: 'rgba(156, 39, 176, 0.25)',
       announcement: 'rgba(255, 165, 0, 0.25)',
       info: 'rgba(33, 150, 243, 0.25)'
     };
@@ -117,6 +129,7 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       urgent: '#f44336',
       missing: '#ffc107',
       alert: '#ffc107',
+      reminders: '#9c27b0',
       announcement: '#ffa500',
       info: '#2196f3'
     };
@@ -129,6 +142,7 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       urgent: '#ff6b6b',
       missing: '#ffeb3b',
       alert: '#ffeb3b',
+      reminders: '#ba68c8',
       announcement: '#ffa500',
       info: '#64b5f6'
     };
@@ -141,6 +155,11 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       // Click on missing items alert - navigate to gear list with missing filter
       if (onMessageClick) {
         onMessageClick('gear', 'missing');
+      }
+    } else if (messageGroup.category === 'reminders') {
+      // Click on reminders - navigate to reminders page
+      if (onMessageClick) {
+        onMessageClick('reminders');
       }
     } else if (messageGroup.category === 'announcement' || messageGroup.category === 'info') {
       // Mark announcements and info as read when clicked
@@ -179,17 +198,6 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
     }
   };
 
-  // Get label for category
-  const getCategoryLabel = (category, count) => {
-    const labels = {
-      urgent: 'Urgent',
-      missing: count === 1 ? 'Item missing' : 'Items missing',
-      alert: 'Alert',
-      announcement: 'Announcement',
-      info: 'Info'
-    };
-    return labels[category] || category;
-  };
 
   // Always show the bar to prevent layout shift, even when empty
   // Show a subtle placeholder when there are no messages
@@ -216,8 +224,8 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
     messageChip: (category) => ({
       display: 'flex',
       alignItems: 'center',
-      gap: '8px',
-      padding: '8px 14px',
+      gap: '6px',
+      padding: '8px 12px',
       background: getCategoryBg(category),
       border: `2px solid ${getCategoryBorder(category)}`,
       borderRadius: '20px',
@@ -228,13 +236,13 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
       whiteSpace: 'nowrap'
     }),
     messageEmoji: {
-      fontSize: '16px'
+      fontSize: '18px'
     },
-    messageText: (category) => ({
-      fontSize: '13px',
-      fontWeight: '600',
+    messageCount: (category) => ({
+      fontSize: '14px',
+      fontWeight: '700',
       color: getCategoryColor(category),
-      letterSpacing: '0.3px'
+      letterSpacing: '0.5px'
     })
   };
 
@@ -269,8 +277,8 @@ export default function MessageBar({ statusCounts, onMessageClick }) {
             <span style={styles.messageEmoji}>
               {getCategoryEmoji(messageGroup.category)}
             </span>
-            <span style={styles.messageText(messageGroup.category)}>
-              {messageGroup.count} {getCategoryLabel(messageGroup.category, messageGroup.count)}
+            <span style={styles.messageCount(messageGroup.category)}>
+              {messageGroup.count}
             </span>
           </div>
           ))

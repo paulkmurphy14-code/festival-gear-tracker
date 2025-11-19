@@ -729,7 +729,7 @@ export default function Schedule() {
       background: '#1a1a1a',
       borderRadius: '4px',
       marginBottom: '4px',
-      fontSize: '13px',
+      fontSize: '16px',
       color: '#e0e0e0',
       display: 'flex',
       gap: '12px'
@@ -737,10 +737,12 @@ export default function Schedule() {
     performanceTime: {
       color: '#ffa500',
       fontWeight: '600',
-      minWidth: '60px'
+      minWidth: '70px',
+      fontSize: '16px'
     },
     performanceBand: {
-      color: '#ccc'
+      color: '#ccc',
+      fontSize: '18px'
     },
     emptyState: {
       padding: '60px 20px',
@@ -1106,20 +1108,6 @@ export default function Schedule() {
         </button>
       </div>
 
-      {canUploadScheduleCSV && (
-        <label>
-          <input
-            type="file"
-            accept=".csv"
-            onChange={handleFileSelect}
-            style={{ display: 'none' }}
-          />
-          <button style={styles.uploadButton} onClick={(e) => e.currentTarget.previousElementSibling.click()}>
-            📤 Upload Schedule
-          </button>
-        </label>
-      )}
-
       {/* Day → Stage → Performance structure */}
       {sortedDates.map((dateKey, dayIndex) => {
         const dayPerformances = groupedByDay[dateKey];
@@ -1210,6 +1198,21 @@ export default function Schedule() {
           </div>
         );
       })}
+
+      {/* Upload Schedule Button at Bottom */}
+      {canUploadScheduleCSV && (
+        <label style={{ display: 'block', marginTop: '24px' }}>
+          <input
+            type="file"
+            accept=".csv"
+            onChange={handleFileSelect}
+            style={{ display: 'none' }}
+          />
+          <button style={{...styles.uploadButton, width: '100%'}} onClick={(e) => e.currentTarget.previousElementSibling.click()}>
+            📤 Upload Schedule
+          </button>
+        </label>
+      )}
 
       {/* Preview Modal */}
       {showUploadModal && csvPreview && (

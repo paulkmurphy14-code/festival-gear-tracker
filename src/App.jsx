@@ -9,6 +9,7 @@ import UserManagement from './components/UserManagement';
 import Messages from './components/Messages';
 import MessageBar from './components/MessageBar';
 import Reminders from './components/Reminders';
+import StowagePlan from './components/StowagePlan';
 import FestivalSelector from './components/FestivalSelector';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
@@ -94,10 +95,14 @@ function AppContent() {
   const [locationColors, setLocationColors] = useState({});
   const [message, setMessage] = useState('');
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, checkedOut: 0, missing: 0 });
+  const [statusCounts, setStatusCounts] = useState({ active: 0, transit: 0, onStage: 0, checkedOut: 0, missing: 0 });
   const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
   const [activeRemindersCount, setActiveRemindersCount] = useState(0);
   const [invitation, setInvitation] = useState(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  const [infoModalType, setInfoModalType] = useState(null);
+  const [infoModalGear, setInfoModalGear] = useState([]);
+  const [expandedInfoBands, setExpandedInfoBands] = useState({});
 
   const loadLocations = useCallback(async () => {
     if (!db) return;
@@ -120,10 +125,11 @@ function AppContent() {
     try {
       const allGear = await db.gear.toArray();
       const missing = allGear.filter(g => g.missing_status === 'missing').length;
-      const active = allGear.filter(g => !g.in_transit && !g.checked_out && g.current_location_id && g.missing_status !== 'missing').length;
-      const transit = allGear.filter(g => g.in_transit).length;
-      const checkedOut = allGear.filter(g => g.checked_out).length;
-      setStatusCounts({ active, transit, checkedOut, missing });
+      const onStage = allGear.filter(g => g.on_stage && g.missing_status !== 'missing').length;
+      const transit = allGear.filter(g => g.in_transit && !g.on_stage && g.missing_status !== 'missing').length;
+      const checkedOut = allGear.filter(g => g.checked_out && !g.on_stage && !g.in_transit && g.missing_status !== 'missing').length;
+      const active = allGear.filter(g => !g.in_transit && !g.on_stage && !g.checked_out && g.current_location_id && g.missing_status !== 'missing').length;
+      setStatusCounts({ active, transit, onStage, checkedOut, missing });
     } catch (error) {
       console.error('Error loading status counts:', error);
     }
@@ -239,6 +245,7 @@ function AppContent() {
     try {
       const updateData = {
         in_transit: type === 'transit',
+        on_stage: type === 'stage',
         checked_out: type === 'band',
         lastUpdated: new Date()
       };
@@ -253,11 +260,12 @@ function AppContent() {
         gear_id: scannedGear.id,
         location_id: scannedGear.current_location_id,
         scanned_at: new Date(),
-        action: type === 'transit' ? 'check_out_transit' : 'check_out_band',
+        action: type === 'transit' ? 'check_out_transit' : type === 'stage' ? 'on_stage' : 'check_out_band',
         user_email: currentUser?.email || 'unknown'
       });
 
-      setMessage(type === 'transit' ? 'Item in transit' : 'Item checked out to band');
+      const messageText = type === 'transit' ? 'Item in transit' : type === 'stage' ? 'Item on stage' : 'Item checked out to band';
+      setMessage(messageText);
       setTimeout(() => setMessage(''), 3000);
       setScannedGear(null);
       setActiveTab('home');
@@ -272,6 +280,30 @@ function AppContent() {
   const handleLocationsUpdate = () => {
     loadLocations();
     setRefreshTrigger(prev => prev + 1);
+  };
+
+  const handleInfoBarClick = async (type) => {
+    try {
+      const allGear = await db.gear.toArray();
+      let filtered = [];
+
+      if (type === 'active') {
+        filtered = allGear.filter(g => !g.in_transit && !g.on_stage && !g.checked_out && g.current_location_id && g.missing_status !== 'missing');
+      } else if (type === 'transit') {
+        filtered = allGear.filter(g => g.in_transit && !g.on_stage && g.missing_status !== 'missing');
+      } else if (type === 'onStage') {
+        filtered = allGear.filter(g => g.on_stage && g.missing_status !== 'missing');
+      } else if (type === 'checkedOut') {
+        filtered = allGear.filter(g => g.checked_out && !g.on_stage && !g.in_transit && g.missing_status !== 'missing');
+      }
+
+      setInfoModalGear(filtered);
+      setInfoModalType(type);
+      setShowInfoModal(true);
+      setExpandedInfoBands({});
+    } catch (error) {
+      console.error('Error loading gear for modal:', error);
+    }
   };
 
   // Check for invitation link on load
@@ -460,7 +492,11 @@ function AppContent() {
       display: 'flex',
       flexDirection: 'column',
       alignItems: 'center',
-      gap: '4px'
+      gap: '4px',
+      cursor: 'pointer',
+      transition: 'transform 0.2s',
+      padding: '4px 8px',
+      borderRadius: '6px'
     },
     infoBarLabel: {
       color: '#888',
@@ -617,6 +653,7 @@ function AppContent() {
         {/* Message Bar - Scrollable notifications */}
         <MessageBar
           statusCounts={statusCounts}
+          activeRemindersCount={activeRemindersCount}
           onMessageClick={(tab, filter) => {
             setActiveTab(tab);
             if (filter === 'missing') {
@@ -633,15 +670,19 @@ function AppContent() {
 
         {/* Status Info Bar */}
         <div style={styles.infoBar}>
-          <div style={styles.infoBarItem}>
+          <div style={styles.infoBarItem} onClick={() => handleInfoBarClick('active')}>
             <span style={styles.infoBarLabel}>Active</span>
             <span style={{ ...styles.infoBarCount, color: '#4caf50' }}>{statusCounts.active}</span>
           </div>
-          <div style={styles.infoBarItem}>
+          <div style={styles.infoBarItem} onClick={() => handleInfoBarClick('transit')}>
             <span style={styles.infoBarLabel}>In Transit</span>
             <span style={{ ...styles.infoBarCount, color: '#ff6b6b' }}>{statusCounts.transit}</span>
           </div>
-          <div style={styles.infoBarItem}>
+          <div style={styles.infoBarItem} onClick={() => handleInfoBarClick('onStage')}>
+            <span style={styles.infoBarLabel}>On Stage</span>
+            <span style={{ ...styles.infoBarCount, color: '#ffa500' }}>{statusCounts.onStage}</span>
+          </div>
+          <div style={styles.infoBarItem} onClick={() => handleInfoBarClick('checkedOut')}>
             <span style={styles.infoBarLabel}>Checked Out</span>
             <span style={{ ...styles.infoBarCount, color: '#888' }}>{statusCounts.checkedOut}</span>
           </div>
@@ -702,7 +743,7 @@ function AppContent() {
               </div>
 
               <div style={styles.homeButton} onClick={() => setActiveTab('reminders')}>
-                <span style={styles.homeButtonIcon}>📝</span>
+                <span style={styles.homeButtonIcon}>⏰</span>
                 <div style={styles.homeButtonText}>Reminders</div>
                 <div style={styles.homeButtonDesc}>My Tasks</div>
                 {activeRemindersCount > 0 && (
@@ -712,9 +753,15 @@ function AppContent() {
                 )}
               </div>
 
+              <div style={styles.homeButton} onClick={() => setActiveTab('stowage')}>
+                <span style={styles.homeButtonIcon}>📦</span>
+                <div style={styles.homeButtonText}>Stowage</div>
+                <div style={styles.homeButtonDesc}>Container Plan</div>
+              </div>
+
               {canBulkUploadCSV && (
                 <div style={styles.homeButton} onClick={() => setActiveTab('prepared')}>
-                  <span style={styles.homeButtonIcon}>📦</span>
+                  <span style={styles.homeButtonIcon}>📄</span>
                   <div style={styles.homeButtonText}>Bulk Upload</div>
                   <div style={styles.homeButtonDesc}>CSV Import</div>
                 </div>
@@ -957,6 +1004,27 @@ function AppContent() {
           </>
         )}
 
+        {activeTab === 'stowage' && (
+          <>
+            <StowagePlan />
+            <button
+              style={styles.floatingBackButton}
+              onClick={() => setActiveTab('home')}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'scale(1.1)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(255, 165, 0, 0.6)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'scale(1)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(255, 165, 0, 0.4)';
+              }}
+              title="Back to Home"
+            >
+              🏠
+            </button>
+          </>
+        )}
+
         {activeTab === 'scanner' && (
           <>
             <Scanner onScan={handleScan} />
@@ -1133,6 +1201,23 @@ function AppContent() {
                     🚚 In Transit (Moving)
                   </button>
                   <button
+                    onClick={() => handleCheckOut('stage')}
+                    style={{
+                      padding: '18px',
+                      background: '#ffa500',
+                      color: '#1a1a1a',
+                      border: 'none',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      fontWeight: '700',
+                      textTransform: 'uppercase',
+                      letterSpacing: '1px'
+                    }}
+                  >
+                    🎸 On Stage
+                  </button>
+                  <button
                     onClick={() => handleCheckOut('band')}
                     style={{
                       padding: '18px',
@@ -1147,7 +1232,7 @@ function AppContent() {
                       letterSpacing: '1px'
                     }}
                   >
-                    🎸 Check Out to Band
+                    🎤 Check Out to Band
                   </button>
                 </div>
               </div>
@@ -1220,6 +1305,160 @@ function AppContent() {
               Cancel
             </button>
           </>
+        )}
+
+        {/* Info Bar Modal */}
+        {showInfoModal && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '20px'
+          }}
+          onClick={() => setShowInfoModal(false)}
+          >
+            <div style={{
+              backgroundColor: '#1a1a1a',
+              borderRadius: '12px',
+              maxWidth: '600px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflow: 'hidden',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '2px solid #ffa500'
+            }}
+            onClick={(e) => e.stopPropagation()}
+            >
+              <div style={{
+                padding: '20px',
+                borderBottom: '2px solid #664400',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <h3 style={{
+                  margin: 0,
+                  color: '#ffa500',
+                  fontSize: '18px',
+                  fontWeight: '700',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px'
+                }}>
+                  {infoModalType === 'active' && 'Active Gear'}
+                  {infoModalType === 'transit' && 'In Transit'}
+                  {infoModalType === 'onStage' && 'On Stage 🎸'}
+                  {infoModalType === 'checkedOut' && 'Checked Out'}
+                </h3>
+                <button
+                  onClick={() => setShowInfoModal(false)}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#ffa500',
+                    fontSize: '24px',
+                    cursor: 'pointer',
+                    padding: '0',
+                    width: '30px',
+                    height: '30px'
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              <div style={{
+                padding: '20px',
+                overflowY: 'auto',
+                flex: 1
+              }}>
+                {infoModalGear.length === 0 ? (
+                  <div style={{ textAlign: 'center', padding: '40px', color: '#888' }}>
+                    No items in this status
+                  </div>
+                ) : (
+                  (() => {
+                    const groupedByBand = {};
+                    infoModalGear.forEach(item => {
+                      const bandKey = item.band_id || 'No Band';
+                      if (!groupedByBand[bandKey]) {
+                        groupedByBand[bandKey] = [];
+                      }
+                      groupedByBand[bandKey].push(item);
+                    });
+
+                    return Object.entries(groupedByBand).map(([bandName, items]) => (
+                      <div key={bandName} style={{ marginBottom: '16px' }}>
+                        <div
+                          onClick={() => setExpandedInfoBands(prev => ({ ...prev, [bandName]: !prev[bandName] }))}
+                          style={{
+                            padding: '12px',
+                            background: '#2d2d2d',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            border: '2px solid #664400'
+                          }}
+                        >
+                          <div>
+                            <span style={{ fontSize: '14px', marginRight: '8px' }}>
+                              {expandedInfoBands[bandName] ? '▼' : '▶'}
+                            </span>
+                            <span style={{ color: '#ffa500', fontWeight: '600', fontSize: '15px' }}>
+                              {bandName}
+                            </span>
+                          </div>
+                          <span style={{
+                            background: 'rgba(255, 165, 0, 0.2)',
+                            color: '#ffa500',
+                            padding: '4px 10px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '700'
+                          }}>
+                            {items.length}
+                          </span>
+                        </div>
+                        {expandedInfoBands[bandName] && (
+                          <div style={{ marginTop: '8px', marginLeft: '20px' }}>
+                            {items.map(item => (
+                              <div key={item.id} style={{
+                                padding: '10px',
+                                background: '#2d2d2d',
+                                borderRadius: '6px',
+                                marginBottom: '8px',
+                                borderLeft: '3px solid #ffa500'
+                              }}>
+                                <div style={{ color: '#e0e0e0', fontSize: '14px', marginBottom: '4px' }}>
+                                  {item.description}
+                                </div>
+                                <div style={{ color: '#888', fontSize: '12px' }}>
+                                  ID: #{String(item.display_id || '0000').padStart(4, '0')}
+                                  {item.current_location_id && infoModalType === 'active' && (
+                                    <span style={{ marginLeft: '10px' }}>
+                                      📍 {locations.find(loc => String(loc.id) === String(item.current_location_id))?.name || 'Unknown'}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    ));
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

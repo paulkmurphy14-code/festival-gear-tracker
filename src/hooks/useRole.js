@@ -75,6 +75,7 @@ export function useRole() {
     canBulkUploadCSV: role === 'owner' || role === 'admin',
     canUploadScheduleCSV: role === 'owner' || role === 'admin',
     canManageLocations: role === 'owner' || role === 'admin',
+    canEditStowage: role === 'owner' || role === 'admin',
 
     // Owner Only
     canManageUsers: role === 'owner',
