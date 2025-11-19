@@ -1087,6 +1087,7 @@ export default function StowagePlan() {
                   const initials = gearItem.band_id
                     ? gearItem.band_id.split(' ').map(w => w[0]).join('').substring(0, 3).toUpperCase()
                     : '??';
+                  const isTouchDragging = touchDragItem?.id === gearItem.id;
 
                   return (
                     <div
@@ -1096,7 +1097,58 @@ export default function StowagePlan() {
                         e.dataTransfer.setData('staged_gear_id', gearItem.id);
                         e.dataTransfer.effectAllowed = 'move';
                       }}
-                      style={styles.stagedCard}
+                      onTouchStart={(e) => {
+                        console.log('🎯 Touch start on staged item:', gearItem.description);
+                        setTouchDragItem(gearItem);
+                        const touch = e.touches[0];
+                        setTouchPosition({ x: touch.clientX, y: touch.clientY });
+                        e.currentTarget.style.opacity = '0.6';
+                      }}
+                      onTouchMove={(e) => {
+                        const touch = e.touches[0];
+                        setTouchPosition({ x: touch.clientX, y: touch.clientY });
+                      }}
+                      onTouchEnd={(e) => {
+                        console.log('🎯 Touch end on staged item');
+                        let x, y;
+                        if (touchPosition) {
+                          x = touchPosition.x;
+                          y = touchPosition.y;
+                        } else {
+                          const touch = e.changedTouches[0];
+                          x = touch.clientX;
+                          y = touch.clientY;
+                        }
+
+                        const canvas = document.querySelector('[data-stowage-canvas="true"]');
+
+                        if (canvas && touchDragItem) {
+                          const rect = canvas.getBoundingClientRect();
+                          const isOverCanvas = (
+                            x >= rect.left &&
+                            x <= rect.right &&
+                            y >= rect.top &&
+                            y <= rect.bottom
+                          );
+
+                          if (isOverCanvas) {
+                            console.log('🎯 Dropping staged item on canvas!');
+                            const dropX = x - rect.left;
+                            const dropY = y - rect.top;
+                            const xPercent = (dropX / rect.width) * 100;
+                            const yPercent = (dropY / rect.height) * 100;
+                            handleStagedItemDrop(touchDragItem, { xPercent, yPercent });
+                          }
+                        }
+
+                        setTouchDragItem(null);
+                        setTouchPosition(null);
+                        e.currentTarget.style.opacity = '1';
+                      }}
+                      style={{
+                        ...styles.stagedCard,
+                        opacity: isTouchDragging ? 0.6 : 1
+                      }}
                       title={gearItem.description}
                     >
                       {initials}

@@ -159,6 +159,61 @@ export default function StowageCanvas({
     setDraggingItem(null);
   };
 
+  // Touch handlers for moving items on mobile
+  const handleTouchStartItem = (e, item) => {
+    if (readonly) return;
+
+    e.stopPropagation(); // Prevent canvas touch handlers from interfering
+
+    const touch = e.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+
+    const itemPos = percentToPixels(item.x_position, item.y_position, item.item_width, item.item_length);
+
+    setDraggingItem(item);
+    setDragOffset({
+      x: touchX - itemPos.x,
+      y: touchY - itemPos.y
+    });
+  };
+
+  const handleTouchMoveItem = (e) => {
+    if (!draggingItem || readonly) return;
+
+    e.preventDefault(); // Prevent scrolling while dragging
+    const touch = e.touches[0];
+    const rect = canvasRef.current.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    const touchY = touch.clientY - rect.top;
+
+    const newX = touchX - dragOffset.x;
+    const newY = touchY - dragOffset.y;
+
+    // Constrain to canvas bounds
+    const maxX = canvasDimensions.width - (draggingItem.item_width / width) * canvasDimensions.width;
+    const maxY = canvasDimensions.height - (draggingItem.item_length / length) * canvasDimensions.height;
+
+    const constrainedX = Math.max(0, Math.min(newX, maxX));
+    const constrainedY = Math.max(0, Math.min(newY, maxY));
+
+    const { xPercent, yPercent } = pixelsToPercent(constrainedX, constrainedY);
+
+    // Update dragging item position temporarily
+    setDraggingItem({ ...draggingItem, x_position: xPercent, y_position: yPercent });
+  };
+
+  const handleTouchEndItem = () => {
+    if (draggingItem && onItemMove) {
+      onItemMove(draggingItem.id, {
+        x_position: draggingItem.x_position,
+        y_position: draggingItem.y_position
+      });
+    }
+    setDraggingItem(null);
+  };
+
   const handleItemDelete = (item, e) => {
     e.stopPropagation();
     if (onItemDelete && window.confirm('Remove this item from the container?')) {
@@ -432,6 +487,9 @@ export default function StowageCanvas({
                 onMouseEnter={() => setHoveredItem(item)}
                 onMouseLeave={() => setHoveredItem(null)}
                 onContextMenu={(e) => handleContextMenu(item, e)}
+                onTouchStart={(e) => handleTouchStartItem(e, item)}
+                onTouchMove={handleTouchMoveItem}
+                onTouchEnd={handleTouchEndItem}
                 title={gearItem.description}
               >
                 {bandInitials}
