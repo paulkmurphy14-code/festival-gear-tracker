@@ -478,10 +478,12 @@ function AppContent() {
       borderRadius: '4px',
       transition: 'all 0.2s',
       display: 'flex',
+      flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      width: '36px',
-      height: '36px'
+      width: 'auto',
+      height: 'auto',
+      gap: '2px'
     },
     headerTitle: {
       fontSize: '16px',
@@ -658,16 +660,17 @@ function AppContent() {
             style={styles.infoButton}
             onClick={() => setShowDocumentation(true)}
             onMouseEnter={(e) => {
-              e.target.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
-              e.target.style.transform = 'scale(1.1)';
+              e.currentTarget.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
+              e.currentTarget.style.transform = 'scale(1.1)';
             }}
             onMouseLeave={(e) => {
-              e.target.style.backgroundColor = 'transparent';
-              e.target.style.transform = 'scale(1)';
+              e.currentTarget.style.backgroundColor = 'transparent';
+              e.currentTarget.style.transform = 'scale(1)';
             }}
             title="Help & Documentation"
           >
-            ⓘ
+            <span style={{ fontSize: '24px', lineHeight: '1' }}>ⓘ</span>
+            <span style={{ fontSize: '10px', fontWeight: '600', lineHeight: '1' }}>Help</span>
           </button>
           <h1 style={styles.headerTitle}>Festival Gear Tracker</h1>
           <p style={styles.headerTagline}>Organising Chaos Like a Pro</p>
