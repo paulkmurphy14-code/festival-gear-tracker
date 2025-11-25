@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, addDoc, arrayUnion } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 const FestivalContext = createContext();
@@ -97,6 +97,85 @@ export function FestivalProvider({ children }) {
       }
     } catch (error) {
       console.error('Error selecting festival:', error);
+    }
+  };
+
+  const acceptInvitation = async (invitation) => {
+    if (!currentUser || !invitation) {
+      throw new Error('Missing user or invitation data');
+    }
+
+    try {
+      // Update user document to add festival
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        // Update existing user
+        const userData = userDoc.data();
+        let festivals = [];
+
+        // Get existing festivals or migrate from old schema
+        if (userData.festivals && Array.isArray(userData.festivals)) {
+          festivals = [...userData.festivals];
+        } else if (userData.festivalId) {
+          // Migrate old schema to new
+          festivals = [{
+            festivalId: userData.festivalId,
+            role: userData.role || 'user'
+          }];
+        }
+
+        // Check if user is already in this festival
+        const existingIndex = festivals.findIndex(f => f.festivalId === invitation.festivalId);
+
+        if (existingIndex >= 0) {
+          // Update role if already in festival
+          festivals[existingIndex].role = invitation.role;
+        } else {
+          // Add new festival
+          festivals.push({
+            festivalId: invitation.festivalId,
+            role: invitation.role
+          });
+        }
+
+        // Update with new schema and remove old fields
+        await updateDoc(userDocRef, {
+          festivals: festivals,
+          festivalId: null,  // Remove old schema field
+          role: null         // Remove old schema field
+        });
+      } else {
+        // Create new user document with new schema
+        await setDoc(userDocRef, {
+          email: currentUser.email,
+          festivals: [{
+            festivalId: invitation.festivalId,
+            role: invitation.role
+          }],
+          createdAt: new Date()
+        });
+      }
+
+      // Mark invitation as accepted
+      const invitationRef = doc(db, 'invitations', invitation.id);
+      await updateDoc(invitationRef, {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: currentUser.uid
+      });
+
+      // Store festival selection in localStorage
+      localStorage.setItem(`selectedFestival_${currentUser.uid}`, invitation.festivalId);
+
+      // Directly load the festival (no reload needed!)
+      await selectFestival(invitation.festivalId);
+
+      return true;
+    } catch (error) {
+      console.error('Error accepting invitation:', error);
+      throw error;
     }
   };
 
@@ -200,6 +279,7 @@ export function FestivalProvider({ children }) {
     currentFestival,
     createFestival,
     selectFestival,
+    acceptInvitation,
     loading,
     needsSelection
   };

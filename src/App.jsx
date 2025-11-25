@@ -85,7 +85,7 @@ const GlobalStyles = () => (
 
 function AppContent() {
   const { currentUser, logout } = useAuth();
-  const { currentFestival, loading: festivalLoading, needsSelection, selectFestival } = useFestival();
+  const { currentFestival, loading: festivalLoading, needsSelection, selectFestival, acceptInvitation } = useFestival();
   const db = useDatabase();
   const { role, canManageUsers, canBulkUploadCSV, canManageLocations } = useRole();
 
@@ -339,89 +339,31 @@ function AppContent() {
 
   // Handle invitation acceptance after user logs in/signs up
   useEffect(() => {
-    const acceptInvitation = async () => {
+    const handleInvitationAcceptance = async () => {
       if (!currentUser || !invitation) return;
 
       try {
-        // Add user to the festival
-        const userDocRef = doc(firebaseDb, 'users', currentUser.uid);
-        const userDoc = await getDoc(userDocRef);
+        // Use the acceptInvitation method from FestivalContext
+        await acceptInvitation(invitation);
 
-        if (userDoc.exists()) {
-          // Update existing user to add new festival
-          const userData = userDoc.data();
-          let festivals = [];
-
-          // Get existing festivals array or migrate from old schema
-          if (userData.festivals && Array.isArray(userData.festivals)) {
-            festivals = [...userData.festivals];
-          } else if (userData.festivalId) {
-            // Migrate old schema to new
-            festivals = [{
-              festivalId: userData.festivalId,
-              role: userData.role || 'user'
-            }];
-          }
-
-          // Check if user is already in this festival
-          const existingIndex = festivals.findIndex(f => f.festivalId === invitation.festivalId);
-
-          if (existingIndex >= 0) {
-            // Update role if already in festival
-            festivals[existingIndex].role = invitation.role;
-          } else {
-            // Add new festival
-            festivals.push({
-              festivalId: invitation.festivalId,
-              role: invitation.role
-            });
-          }
-
-          // Update with new schema and remove old fields
-          await updateDoc(userDocRef, {
-            festivals: festivals,
-            festivalId: null,  // Remove old schema field
-            role: null         // Remove old schema field
-          });
-        } else {
-          // Create new user document with new schema
-          await setDoc(userDocRef, {
-            email: currentUser.email,
-            festivals: [{
-              festivalId: invitation.festivalId,
-              role: invitation.role
-            }],
-            createdAt: new Date()
-          });
-        }
-
-        // Mark invitation as accepted
-        await updateDoc(doc(firebaseDb, 'invitations', invitation.id), {
-          status: 'accepted',
-          acceptedAt: new Date(),
-          acceptedBy: currentUser.uid
-        });
-
-        // Store festival selection in localStorage for faster loading
-        localStorage.setItem(`selectedFestival_${currentUser.uid}`, invitation.festivalId);
-
-        // Clear invitation
+        // Clear invitation state
         setInvitation(null);
         localStorage.removeItem('pendingInvitation');
 
         // Remove invite param from URL
         window.history.replaceState({}, '', window.location.pathname);
 
-        // Reload to load the festival (FestivalContext will pick up the change)
-        window.location.reload();
+        // No reload needed! Festival loads automatically via context
 
       } catch (error) {
         console.error('Error accepting invitation:', error);
+        // Show error to user
+        setMessage('Failed to accept invitation. Please try again.');
       }
     };
 
-    acceptInvitation();
-  }, [currentUser, invitation]);
+    handleInvitationAcceptance();
+  }, [currentUser, invitation, acceptInvitation]);
 
   if (!currentUser) {
     return showSignup ? (
