@@ -45,8 +45,11 @@ service cloud.firestore {
     }
 
     // Invitations collection - Root level (for signup/invitation lookups)
+    // Allow unauthenticated read so users can see invitation details before logging in
+    // Invitations are one-time use and don't contain sensitive data
     match /invitations/{invitationId} {
-      allow read, write: if isSignedIn();
+      allow read: if true;  // Anyone can read invitations
+      allow write: if isSignedIn();  // Only authenticated users can create/update invitations
     }
 
     // Festivals collection

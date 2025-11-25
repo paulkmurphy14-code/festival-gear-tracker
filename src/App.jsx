@@ -402,6 +402,9 @@ function AppContent() {
           acceptedBy: currentUser.uid
         });
 
+        // Store festival selection in localStorage for faster loading
+        localStorage.setItem(`selectedFestival_${currentUser.uid}`, invitation.festivalId);
+
         // Clear invitation
         setInvitation(null);
         localStorage.removeItem('pendingInvitation');
@@ -409,7 +412,7 @@ function AppContent() {
         // Remove invite param from URL
         window.history.replaceState({}, '', window.location.pathname);
 
-        // Refresh to load new festival
+        // Reload to load the festival (FestivalContext will pick up the change)
         window.location.reload();
 
       } catch (error) {
@@ -442,7 +445,7 @@ function AppContent() {
   }
 
   if (!currentFestival) {
-    return <FestivalSetup />;
+    return <FestivalSetup invitation={invitation} />;
   }
 
   const styles = {

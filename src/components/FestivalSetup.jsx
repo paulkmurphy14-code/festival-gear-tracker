@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useFestival } from '../contexts/FestivalContext';
+import { useAuth } from '../contexts/AuthContext';
+import { doc, getDoc, updateDoc, setDoc, arrayUnion } from 'firebase/firestore';
+import { db } from '../firebase';
 
-export default function FestivalSetup() {
+export default function FestivalSetup({ invitation }) {
+  const { currentUser, logout } = useAuth();
   const [formData, setFormData] = useState({
   festivalName: '',
   registrarName: '',
@@ -14,6 +18,78 @@ export default function FestivalSetup() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { createFestival } = useFestival();
+
+  const acceptPendingInvitation = async () => {
+    if (!currentUser || !invitation) return;
+
+    try {
+      // Get user document
+      const userDocRef = doc(db, 'users', currentUser.uid);
+      const userDoc = await getDoc(userDocRef);
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+
+        // Check if user already has this festival
+        if (userData.festivals && userData.festivals.some(f => f.festivalId === invitation.festivalId)) {
+          throw new Error('You are already a member of this festival');
+        }
+
+        // Handle both old and new schema
+        if (userData.festivals && Array.isArray(userData.festivals)) {
+          // New schema: add to festivals array
+          await updateDoc(userDocRef, {
+            festivals: arrayUnion({
+              festivalId: invitation.festivalId,
+              role: invitation.role
+            })
+          });
+        } else if (userData.festivalId) {
+          // Old schema: migrate to new schema
+          await updateDoc(userDocRef, {
+            festivals: [
+              { festivalId: userData.festivalId, role: userData.role || 'user' },
+              { festivalId: invitation.festivalId, role: invitation.role }
+            ],
+            festivalId: null,
+            role: null
+          });
+        } else {
+          // No festivals yet: create new array
+          await updateDoc(userDocRef, {
+            festivals: [{ festivalId: invitation.festivalId, role: invitation.role }]
+          });
+        }
+      } else {
+        // Create new user document
+        await setDoc(userDocRef, {
+          email: currentUser.email,
+          festivals: [{ festivalId: invitation.festivalId, role: invitation.role }],
+          createdAt: new Date()
+        });
+      }
+
+      // Mark invitation as accepted
+      const invitationRef = doc(db, 'invitations', invitation.id);
+      await updateDoc(invitationRef, {
+        status: 'accepted',
+        acceptedAt: new Date(),
+        acceptedBy: currentUser.uid
+      });
+
+      // Store festival selection in localStorage
+      localStorage.setItem(`selectedFestival_${currentUser.uid}`, invitation.festivalId);
+
+      // Clear pending invitation
+      localStorage.removeItem('pendingInvitation');
+
+      // Reload to load the festival
+      window.location.href = '/';
+    } catch (err) {
+      console.error('Error accepting invitation:', err);
+      throw err;
+    }
+  };
 
  const handleSubmit = async (e) => {
   e.preventDefault();
@@ -55,8 +131,55 @@ export default function FestivalSetup() {
           🎪 Welcome to Festival Gear Tracker
         </h2>
         <p style={{ textAlign: 'center', color: '#888', marginBottom: '30px' }}>
-          Let's set up your festival
+          {invitation ? 'You have a pending invitation!' : "Let's set up your festival"}
         </p>
+
+        {invitation && (
+          <div style={{
+            padding: '16px',
+            marginBottom: '20px',
+            background: 'rgba(76, 175, 80, 0.2)',
+            color: '#4caf50',
+            border: '2px solid #4caf50',
+            borderRadius: '8px',
+            fontSize: '14px'
+          }}>
+            <div style={{ fontWeight: '600', marginBottom: '8px' }}>
+              🎉 You've been invited!
+            </div>
+            <div style={{ marginBottom: '12px' }}>
+              Join <strong>{invitation.festivalName}</strong> as a <strong>{invitation.role}</strong>
+            </div>
+            <button
+              onClick={async () => {
+                try {
+                  setLoading(true);
+                  await acceptPendingInvitation();
+                } catch (err) {
+                  setError('Failed to accept invitation: ' + err.message);
+                  setLoading(false);
+                }
+              }}
+              disabled={loading}
+              style={{
+                width: '100%',
+                padding: '12px',
+                background: loading ? '#3a3a3a' : '#4caf50',
+                color: loading ? '#666' : '#fff',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+            >
+              {loading ? 'Accepting...' : 'Accept Invitation & Join Festival'}
+            </button>
+            <div style={{ textAlign: 'center', marginTop: '8px', fontSize: '12px', color: '#888' }}>
+              or create your own festival below
+            </div>
+          </div>
+        )}
 
         {error && (
           <div style={{
@@ -265,6 +388,32 @@ export default function FestivalSetup() {
         }}>
           <strong>📝 Note:</strong> You'll get a 30-day free trial to test all features.
         </div>
+
+        {currentUser && (
+          <div style={{
+            marginTop: '20px',
+            textAlign: 'center',
+            fontSize: '14px'
+          }}>
+            <button
+              onClick={async () => {
+                await logout();
+                window.location.href = '/';
+              }}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#ffa500',
+                cursor: 'pointer',
+                textDecoration: 'underline',
+                fontSize: '14px',
+                padding: '8px'
+              }}
+            >
+              Already signed up? Login
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
