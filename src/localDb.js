@@ -70,11 +70,8 @@ db.version(12).stores({
 // Initialize default locations with colors (on first run)
 db.on('populate', () => {
   db.locations.bulkAdd([
-    { id: 1, name: 'The Salty Dog', type: 'stage', color: '#e74c3c', emoji: '🎸' },
-    { id: 2, name: 'Providencia', type: 'stage', color: '#3498db', emoji: '🎤' },
-    { id: 3, name: 'Trailer Park', type: 'storage', color: '#f39c12', emoji: '🚐' },
-    { id: 4, name: 'Survivor', type: 'transit', color: '#2ecc71', emoji: '🚢' },
-    { id: 5, name: 'Band Registration Area', type: 'registration', color: '#9b59b6', emoji: '📝' }
+    { id: 1, name: 'Band Registration Area', type: 'registration', color: '#9b59b6', emoji: '📝' },
+    { id: 2, name: 'Tags Not Collected', type: 'registration', color: '#e74c3c', emoji: '❌' }
   ]);
 });
 

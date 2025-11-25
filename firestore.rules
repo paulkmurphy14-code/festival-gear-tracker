@@ -69,7 +69,7 @@ service cloud.firestore {
 
       // Locations subcollection
       match /locations/{locationId} {
-        allow read, write: if belongsToFestival(festivalId);
+        allow read, write: if belongsToFestival(festivalId) || isAdminOrOwner(festivalId);
       }
 
       // Performances subcollection

@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { doc, getDoc, setDoc, updateDoc, collection } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, addDoc } from 'firebase/firestore';
 import { useAuth } from './AuthContext';
 
 const FestivalContext = createContext();
@@ -117,6 +117,17 @@ export function FestivalProvider({ children }) {
       licenseStatus: 'trial',
       licenseExpiry: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
+
+    // Initialize default locations for the festival
+    const defaultLocations = [
+      { name: 'Band Registration Area', type: 'registration', color: '#9b59b6', emoji: '📝' },
+      { name: 'Tags Not Collected', type: 'registration', color: '#e74c3c', emoji: '❌' }
+    ];
+
+    const locationsCollection = collection(db, `festivals/${festivalRef.id}/locations`);
+    for (const location of defaultLocations) {
+      await addDoc(locationsCollection, location);
+    }
 
       // Add festival to user's festivals array
       const userDocRef = doc(db, 'users', currentUser.uid);

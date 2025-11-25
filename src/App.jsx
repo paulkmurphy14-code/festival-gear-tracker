@@ -11,6 +11,7 @@ import MessageBar from './components/MessageBar';
 import Reminders from './components/Reminders';
 import StowagePlan from './components/StowagePlan';
 import FestivalSelector from './components/FestivalSelector';
+import DocumentationModal from './components/DocumentationModal';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
@@ -86,7 +87,7 @@ function AppContent() {
   const { currentUser, logout } = useAuth();
   const { currentFestival, loading: festivalLoading, needsSelection, selectFestival } = useFestival();
   const db = useDatabase();
-  const { canManageUsers, canBulkUploadCSV, canManageLocations } = useRole();
+  const { role, canManageUsers, canBulkUploadCSV, canManageLocations } = useRole();
 
   const [showSignup, setShowSignup] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
@@ -103,6 +104,7 @@ function AppContent() {
   const [infoModalType, setInfoModalType] = useState(null);
   const [infoModalGear, setInfoModalGear] = useState([]);
   const [expandedInfoBands, setExpandedInfoBands] = useState({});
+  const [showDocumentation, setShowDocumentation] = useState(false);
 
   const loadLocations = useCallback(async () => {
     if (!db) return;
@@ -460,7 +462,26 @@ function AppContent() {
       borderRadius: '8px',
       marginBottom: '16px',
       borderLeft: '4px solid #ffa500',
-      textAlign: 'center'
+      textAlign: 'center',
+      position: 'relative'
+    },
+    infoButton: {
+      position: 'absolute',
+      top: '16px',
+      right: '16px',
+      background: 'none',
+      border: 'none',
+      color: '#ffa500',
+      fontSize: '24px',
+      cursor: 'pointer',
+      padding: '4px 8px',
+      borderRadius: '4px',
+      transition: 'all 0.2s',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      width: '36px',
+      height: '36px'
     },
     headerTitle: {
       fontSize: '16px',
@@ -633,6 +654,21 @@ function AppContent() {
       <div style={styles.container}>
         {/* Global Header */}
         <div style={styles.header}>
+          <button
+            style={styles.infoButton}
+            onClick={() => setShowDocumentation(true)}
+            onMouseEnter={(e) => {
+              e.target.style.backgroundColor = 'rgba(255, 165, 0, 0.1)';
+              e.target.style.transform = 'scale(1.1)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.backgroundColor = 'transparent';
+              e.target.style.transform = 'scale(1)';
+            }}
+            title="Help & Documentation"
+          >
+            ⓘ
+          </button>
           <h1 style={styles.headerTitle}>Festival Gear Tracker</h1>
           <p style={styles.headerTagline}>Organising Chaos Like a Pro</p>
           <div style={{
@@ -1459,6 +1495,14 @@ function AppContent() {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Documentation Modal */}
+        {showDocumentation && (
+          <DocumentationModal
+            onClose={() => setShowDocumentation(false)}
+            userRole={role || 'user'}
+          />
         )}
       </div>
     </div>
