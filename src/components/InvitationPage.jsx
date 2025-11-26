@@ -8,7 +8,7 @@ import { useFestival } from '../contexts/FestivalContext';
 export default function InvitationPage() {
   const { invitationId } = useParams();
   const navigate = useNavigate();
-  const { currentUser, signup } = useAuth();
+  const { currentUser, signup, logout } = useAuth();
   const { acceptInvitation } = useFestival();
 
   const [invitation, setInvitation] = useState(null);
@@ -86,6 +86,9 @@ export default function InvitationPage() {
 
       // Accept invitation
       await acceptInvitation(invitation);
+
+      // Log out so they have to log in fresh (this forces FestivalContext to reload)
+      await logout();
 
       // Redirect to login page
       navigate('/', { replace: true });
