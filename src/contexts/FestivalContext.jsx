@@ -157,8 +157,11 @@ export function FestivalProvider({ children }) {
         }
 
         // Update with new schema and remove old fields
+        // Also store simple festivalIds array for Firestore rules
+        const festivalIds = festivals.map(f => f.festivalId);
         await updateDoc(userDocRef, {
           festivals: festivals,
+          festivalIds: festivalIds,  // Simple array for rules checking
           festivalId: null,  // Remove old schema field
           role: null         // Remove old schema field
         });
@@ -170,6 +173,7 @@ export function FestivalProvider({ children }) {
             festivalId: invitation.festivalId,
             role: invitation.role
           }],
+          festivalIds: [invitation.festivalId],  // Simple array for rules checking
           createdAt: new Date()
         });
       }

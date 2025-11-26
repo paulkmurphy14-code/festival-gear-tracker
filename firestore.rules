@@ -10,10 +10,13 @@ service cloud.firestore {
     // Helper function to check if user belongs to the festival
     // Supports both old (festivalId field) and new (festivals array) schema
     function belongsToFestival(festivalId) {
-      return isSignedIn() &&
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals != null &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals.hasAny([{festivalId: festivalId}])) ||
-        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivalId == festivalId);
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      return isSignedIn() && (
+        // New schema: check simple festivalIds array
+        (userDoc.festivalIds != null && festivalId in userDoc.festivalIds) ||
+        // Old schema: check festivalId field
+        (userDoc.festivalId == festivalId)
+      );
     }
 
     // Helper function to check if user is admin or owner
