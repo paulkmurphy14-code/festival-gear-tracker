@@ -115,6 +115,12 @@ export default function InvitationPage() {
       // Set the accepted festival ID - useEffect will navigate once festival loads
       setAcceptedFestivalId(invitation.festivalId);
 
+      // Fallback: if festival doesn't load within 3 seconds, force navigation
+      setTimeout(() => {
+        console.log('Timeout reached, forcing navigation');
+        navigate('/', { replace: true });
+      }, 3000);
+
     } catch (err) {
       console.error('Error accepting invitation:', err);
       setError('Failed to accept invitation: ' + err.message);
