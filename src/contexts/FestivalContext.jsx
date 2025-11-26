@@ -254,8 +254,12 @@ export function FestivalProvider({ children }) {
           role: 'owner'
         });
 
+        // Create festivalIds array for Firestore rules
+        const festivalIds = festivals.map(f => f.festivalId);
+
         await updateDoc(userDocRef, {
           festivals: festivals,
+          festivalIds: festivalIds,  // Simple array for Firestore rules
           festivalId: null,  // Remove old schema
           role: null         // Remove old schema
         });
@@ -267,6 +271,7 @@ export function FestivalProvider({ children }) {
             festivalId: festivalRef.id,
             role: 'owner'
           }],
+          festivalIds: [festivalRef.id],  // Simple array for Firestore rules
           createdAt: new Date()
         });
       }
