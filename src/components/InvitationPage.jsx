@@ -87,11 +87,11 @@ export default function InvitationPage() {
       // Accept invitation
       await acceptInvitation(invitation);
 
-      // Log out so they have to log in fresh (this forces FestivalContext to reload)
-      await logout();
+      // Add small delay to ensure Firestore write completes
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      // Redirect to login page
-      navigate('/', { replace: true });
+      // Force full page reload to ensure fresh state
+      window.location.href = '/';
 
     } catch (err) {
       console.error('Error creating account:', err);
