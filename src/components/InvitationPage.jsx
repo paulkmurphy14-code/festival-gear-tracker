@@ -22,7 +22,7 @@ export default function InvitationPage() {
     loadInvitation();
   }, [invitationId]);
 
-  // Auto-accept if user is already logged in
+  // Auto-accept if user is already logged in (for existing users clicking invitation links)
   useEffect(() => {
     if (currentUser && invitation && invitation.status === 'pending' && !accepting) {
       handleAccept();
@@ -84,7 +84,11 @@ export default function InvitationPage() {
       // Create account with email from invitation
       await signup(invitation.email, password);
 
-      // Auth state change will trigger auto-accept in useEffect above
+      // Accept invitation
+      await acceptInvitation(invitation);
+
+      // Redirect to login page
+      navigate('/', { replace: true });
 
     } catch (err) {
       console.error('Error creating account:', err);
