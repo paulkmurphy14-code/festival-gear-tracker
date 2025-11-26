@@ -10,60 +10,28 @@ service cloud.firestore {
     // Helper function to check if user belongs to the festival
     // Supports both old (festivalId field) and new (festivals array) schema
     function belongsToFestival(festivalId) {
-      if (!isSignedIn()) return false;
-
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-
-      // New schema: check festivals array
-      if ('festivals' in userDoc && userDoc.festivals is list) {
-        return userDoc.festivals.hasAny([{festivalId: festivalId}]);
-      }
-      // Old schema: check festivalId field
-      else if ('festivalId' in userDoc) {
-        return userDoc.festivalId == festivalId;
-      }
-
-      return false;
+      return isSignedIn() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals != null &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals.hasAny([{festivalId: festivalId}])) ||
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivalId == festivalId);
     }
 
     // Helper function to check if user is admin or owner
     // Supports both old and new schema
     function isAdminOrOwner(festivalId) {
-      if (!isSignedIn()) return false;
-
-      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
-      let festivalDoc = get(/databases/$(database)/documents/festivals/$(festivalId)).data;
-
-      // Check if owner
-      if (festivalDoc.ownerId == request.auth.uid) {
-        return true;
-      }
-
-      // Check if admin - new schema
-      if ('festivals' in userDoc && userDoc.festivals is list) {
-        // Check if user has this festival with admin role
-        return userDoc.festivals.hasAny([{festivalId: festivalId, role: 'admin'}]);
-      }
-      // Old schema
-      else if ('festivalId' in userDoc) {
-        return userDoc.festivalId == festivalId && userDoc.role == 'admin';
-      }
-
-      return false;
+      return isSignedIn() &&
+        (get(/databases/$(database)/documents/festivals/$(festivalId)).data.ownerId == request.auth.uid ||
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals != null &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivals.hasAny([{festivalId: festivalId, role: 'admin'}])) ||
+         (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivalId == festivalId &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'));
     }
 
     // Users collection - Allow owners to query by email for invitations
     match /users/{userId} {
-      allow read: if isSignedIn() && (
-        request.auth.uid == userId ||
-        getUserFestivalId() == resource.data.festivalId
-      );
+      allow read: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && (
-        request.auth.uid == userId ||
-        (resource.data.festivalId == getUserFestivalId() &&
-         get(/databases/$(database)/documents/festivals/$(resource.data.festivalId)).data.ownerId == request.auth.uid)
-      );
+      allow update: if isSignedIn() && request.auth.uid == userId;
       allow delete: if false;
       // Allow listing/querying users for invitation checks
       allow list: if isSignedIn();

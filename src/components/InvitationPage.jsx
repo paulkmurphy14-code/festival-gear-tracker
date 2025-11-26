@@ -103,8 +103,10 @@ export default function InvitationPage() {
       // Clear invitation from localStorage
       localStorage.removeItem('pendingInvitation');
 
-      // Success! Redirect to app
-      navigate('/');
+      // Wait a moment for context to update, then redirect
+      setTimeout(() => {
+        navigate('/', { replace: true });
+      }, 500);
 
     } catch (err) {
       console.error('Error accepting invitation:', err);
