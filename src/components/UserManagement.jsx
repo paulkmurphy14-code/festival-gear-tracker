@@ -216,6 +216,8 @@ export default function UserManagement() {
       }
 
       const userData = userDoc.data();
+      console.log('DEBUG removeUser: userData before removal:', userData);
+      console.log('DEBUG removeUser: currentFestival.id:', currentFestival.id);
 
       // Remove the current festival from both arrays
       const updatedFestivals = (userData.festivals || []).filter(
@@ -224,6 +226,9 @@ export default function UserManagement() {
       const updatedFestivalIds = (userData.festivalIds || []).filter(
         id => id !== currentFestival.id
       );
+
+      console.log('DEBUG removeUser: updatedFestivals:', updatedFestivals);
+      console.log('DEBUG removeUser: updatedFestivalIds:', updatedFestivalIds);
 
       // Update the user document
       await updateDoc(userDocRef, {
@@ -236,6 +241,7 @@ export default function UserManagement() {
       loadUsers();
     } catch (error) {
       console.error('Error removing user:', error);
+      console.error('Error details:', error.code, error.message);
       setMessage('❌ Error removing user');
       setTimeout(() => setMessage(''), 3000);
     }
