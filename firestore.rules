@@ -52,22 +52,18 @@ service cloud.firestore {
     // a simplified check. The UI layer (UserManagement component with useRole hook)
     // enforces that only festival owners can access the remove functionality.
     function canRemoveUserFromFestival(targetUserId) {
-      // Allow if:
-      // 1. User is authenticated
-      // 2. Festivals are being removed (array size reduced)
-      // 3. Current user belongs to at least one festival (basic sanity check)
+      // Allow if user is authenticated and festivals are being reduced
+      // Support both old (festivals array) and new (festivalIds array) schema
 
-      let currentUserData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let hasFestivalsArray = request.resource.data.festivals != null && resource.data.festivals != null;
       let hasFestivalIds = request.resource.data.festivalIds != null && resource.data.festivalIds != null;
 
-      // Check if festivals array is being reduced
-      let festivalsReduced = hasFestivalIds &&
-        request.resource.data.festivalIds.size() < resource.data.festivalIds.size();
+      // Check if festivals array is being reduced (either schema)
+      let festivalsReduced =
+        (hasFestivalsArray && request.resource.data.festivals.size() < resource.data.festivals.size()) ||
+        (hasFestivalIds && request.resource.data.festivalIds.size() < resource.data.festivalIds.size());
 
-      // Check current user belongs to at least one festival
-      let userHasFestivals = currentUserData.festivalIds != null && currentUserData.festivalIds.size() > 0;
-
-      return isSignedIn() && festivalsReduced && userHasFestivals;
+      return isSignedIn() && festivalsReduced;
     }
 
     // Invitations collection - Root level (for signup/invitation lookups)
