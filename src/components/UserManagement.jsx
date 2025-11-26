@@ -124,8 +124,8 @@ export default function UserManagement() {
         invitationId: invitationRef.id
       });
 
-      // Generate invitation link
-      const inviteLink = `${window.location.origin}?invite=${invitationRef.id}`;
+      // Generate invitation link with new route
+      const inviteLink = `${window.location.origin}/invite/${invitationRef.id}`;
 
       // Copy to clipboard
       navigator.clipboard.writeText(inviteLink);

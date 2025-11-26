@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import RegisterGear from './components/RegisterGear';
 import PreparedGate from './components/PreparedGate';
 import GearList from './components/GearList';
@@ -12,6 +13,7 @@ import Reminders from './components/Reminders';
 import StowagePlan from './components/StowagePlan';
 import FestivalSelector from './components/FestivalSelector';
 import DocumentationModal from './components/DocumentationModal';
+import InvitationPage from './components/InvitationPage';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { FestivalProvider, useFestival } from './contexts/FestivalContext';
 import FestivalSetup from './components/FestivalSetup';
@@ -1459,13 +1461,19 @@ function AppContent() {
 
 function App() {
   return (
-    <AuthProvider>
-      <FestivalProvider>
-        <DatabaseProvider>
-          <AppContent />
-        </DatabaseProvider>
-      </FestivalProvider>
-    </AuthProvider>
+    <BrowserRouter>
+      <AuthProvider>
+        <FestivalProvider>
+          <DatabaseProvider>
+            <Routes>
+              <Route path="/invite/:invitationId" element={<InvitationPage />} />
+              <Route path="/" element={<AppContent />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </DatabaseProvider>
+        </FestivalProvider>
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
