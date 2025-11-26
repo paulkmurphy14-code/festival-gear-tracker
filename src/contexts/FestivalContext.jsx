@@ -19,14 +19,18 @@ export function FestivalProvider({ children }) {
     async function loadUserFestival() {
       setLoading(true);
       try {
+        console.log('DEBUG FestivalContext: Loading festival for user', currentUser.uid);
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
 
+        console.log('DEBUG FestivalContext: userDoc.exists()?', userDoc.exists());
         if (!userDoc.exists()) {
+          console.log('DEBUG FestivalContext: User document does not exist!');
           setLoading(false);
           return;
         }
 
         const userData = userDoc.data();
+        console.log('DEBUG FestivalContext: userData:', userData);
 
         // Check for selected festival in localStorage
         const storedFestivalId = localStorage.getItem(`selectedFestival_${currentUser.uid}`);
@@ -34,9 +38,15 @@ export function FestivalProvider({ children }) {
         let festivalIdToLoad = null;
 
         // Support both old (single festival) and new (multiple festivals) schema
+        console.log('DEBUG FestivalContext: userData.festivals:', userData.festivals);
+        console.log('DEBUG FestivalContext: Is array?', Array.isArray(userData.festivals));
+
         if (userData.festivals && Array.isArray(userData.festivals)) {
           // New schema: array of {festivalId, role}
+          console.log('DEBUG FestivalContext: festivals.length:', userData.festivals.length);
+
           if (userData.festivals.length === 0) {
+            console.log('DEBUG FestivalContext: No festivals in array!');
             setLoading(false);
             return;
           }
@@ -44,11 +54,14 @@ export function FestivalProvider({ children }) {
           if (userData.festivals.length === 1) {
             // Auto-select if only one
             festivalIdToLoad = userData.festivals[0].festivalId;
+            console.log('DEBUG FestivalContext: Auto-selecting festival:', festivalIdToLoad);
           } else if (storedFestivalId && userData.festivals.some(f => f.festivalId === storedFestivalId)) {
             // Use stored selection if valid
             festivalIdToLoad = storedFestivalId;
+            console.log('DEBUG FestivalContext: Using stored festival:', festivalIdToLoad);
           } else {
             // Need user to select
+            console.log('DEBUG FestivalContext: Multiple festivals, needs selection');
             setNeedsSelection(true);
             setLoading(false);
             return;
@@ -56,6 +69,9 @@ export function FestivalProvider({ children }) {
         } else if (userData.festivalId) {
           // Old schema: single festivalId
           festivalIdToLoad = userData.festivalId;
+          console.log('DEBUG FestivalContext: Using old schema festivalId:', festivalIdToLoad);
+        } else {
+          console.log('DEBUG FestivalContext: No festival data found!');
         }
 
         if (festivalIdToLoad) {
