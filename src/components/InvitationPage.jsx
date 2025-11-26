@@ -9,7 +9,7 @@ export default function InvitationPage() {
   const { invitationId } = useParams();
   const navigate = useNavigate();
   const { currentUser, signup } = useAuth();
-  const { currentFestival, acceptInvitation } = useFestival();
+  const { acceptInvitation } = useFestival();
 
   const [invitation, setInvitation] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -17,7 +17,6 @@ export default function InvitationPage() {
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [accepting, setAccepting] = useState(false);
-  const [acceptedFestivalId, setAcceptedFestivalId] = useState(null);
 
   useEffect(() => {
     loadInvitation();
@@ -29,14 +28,6 @@ export default function InvitationPage() {
       handleAccept();
     }
   }, [currentUser, invitation]);
-
-  // Navigate once festival is loaded after acceptance
-  useEffect(() => {
-    if (acceptedFestivalId && currentFestival && currentFestival.id === acceptedFestivalId) {
-      // Festival is now loaded, navigate to app
-      navigate('/', { replace: true });
-    }
-  }, [currentFestival, acceptedFestivalId, navigate]);
 
   const loadInvitation = async () => {
     try {
@@ -112,14 +103,8 @@ export default function InvitationPage() {
       // Clear invitation from localStorage
       localStorage.removeItem('pendingInvitation');
 
-      // Set the accepted festival ID - useEffect will navigate once festival loads
-      setAcceptedFestivalId(invitation.festivalId);
-
-      // Fallback: if festival doesn't load within 3 seconds, force navigation
-      setTimeout(() => {
-        console.log('Timeout reached, forcing navigation');
-        navigate('/', { replace: true });
-      }, 3000);
+      // Force full page reload to properly load festival context
+      window.location.href = '/';
 
     } catch (err) {
       console.error('Error accepting invitation:', err);
