@@ -7,6 +7,7 @@ import {
   collection,
   getDocs,
   doc,
+  getDoc,
   setDoc,
   updateDoc,
   deleteDoc,
@@ -204,7 +205,31 @@ export default function UserManagement() {
     if (!confirmed) return;
 
     try {
-      await deleteDoc(doc(db, 'users', userId));
+      // Get the user document
+      const userDocRef = doc(db, 'users', userId);
+      const userDoc = await getDoc(userDocRef);
+
+      if (!userDoc.exists()) {
+        setMessage('❌ User not found');
+        setTimeout(() => setMessage(''), 3000);
+        return;
+      }
+
+      const userData = userDoc.data();
+
+      // Remove the current festival from both arrays
+      const updatedFestivals = (userData.festivals || []).filter(
+        f => f.festivalId !== currentFestival.id
+      );
+      const updatedFestivalIds = (userData.festivalIds || []).filter(
+        id => id !== currentFestival.id
+      );
+
+      // Update the user document
+      await updateDoc(userDocRef, {
+        festivals: updatedFestivals,
+        festivalIds: updatedFestivalIds
+      });
 
       setMessage('✅ User removed successfully');
       setTimeout(() => setMessage(''), 3000);
