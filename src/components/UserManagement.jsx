@@ -13,6 +13,7 @@ import {
   query,
   where
 } from 'firebase/firestore';
+import QRCode from 'qrcode';
 
 export default function UserManagement() {
   const { currentUser } = useAuth();
@@ -32,6 +33,9 @@ export default function UserManagement() {
   const [uploading, setUploading] = useState(false);
   const [showBulkForm, setShowBulkForm] = useState(false);
   const [bulkFormUsers, setBulkFormUsers] = useState([{ name: '', email: '', role: 'user' }]);
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [currentQRCode, setCurrentQRCode] = useState('');
+  const [currentInviteLink, setCurrentInviteLink] = useState('');
 
   useEffect(() => {
     if (canManageUsers && currentFestival) {
@@ -113,6 +117,19 @@ export default function UserManagement() {
       // Create invitation (allows users to join multiple festivals)
       const invitationRef = doc(collection(db, 'invitations'));
 
+      // Generate invitation link with new route
+      const inviteLink = `${window.location.origin}/invite/${invitationRef.id}`;
+
+      // Generate QR code as data URL
+      const qrCodeDataUrl = await QRCode.toDataURL(inviteLink, {
+        width: 400,
+        margin: 2,
+        color: {
+          dark: '#1a1a1a',
+          light: '#ffa500'
+        }
+      });
+
       await setDoc(invitationRef, {
         email: inviteEmail.trim(),
         role: inviteRole,
@@ -121,22 +138,25 @@ export default function UserManagement() {
         invitedBy: currentUser.uid,
         invitedAt: new Date(),
         status: 'pending',
-        invitationId: invitationRef.id
+        invitationId: invitationRef.id,
+        qrCodeData: qrCodeDataUrl,
+        emailSent: false,
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
       });
-
-      // Generate invitation link with new route
-      const inviteLink = `${window.location.origin}/invite/${invitationRef.id}`;
 
       // Copy to clipboard
       navigator.clipboard.writeText(inviteLink);
 
-      setMessage(`✅ Invitation created! Link copied to clipboard. Share it with ${inviteEmail}`);
+      setMessage(`✅ Invitation created! Link copied. QR code ready.`);
       setInviteEmail('');
       setInviteRole('user');
-      setTimeout(() => setMessage(''), 5000);
 
-      // Show the link in console for easy access
-      console.log('Invitation link:', inviteLink);
+      // Show QR modal
+      setCurrentQRCode(qrCodeDataUrl);
+      setCurrentInviteLink(inviteLink);
+      setShowQRModal(true);
+
+      setTimeout(() => setMessage(''), 5000);
     } catch (error) {
       console.error('Error inviting user:', error);
       setMessage('❌ Error creating invitation');
@@ -1418,6 +1438,117 @@ export default function UserManagement() {
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0, 0, 0, 0.9)',
+          zIndex: 3000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }} onClick={() => setShowQRModal(false)}>
+          <div style={{
+            background: '#2d2d2d',
+            borderRadius: '20px',
+            padding: '40px',
+            maxWidth: '500px',
+            width: '100%',
+            border: '2px solid #ffa500',
+            textAlign: 'center'
+          }} onClick={(e) => e.stopPropagation()}>
+            <h3 style={{
+              marginTop: 0,
+              marginBottom: '20px',
+              color: '#ffa500',
+              fontSize: '20px',
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}>
+              Invitation QR Code
+            </h3>
+
+            <p style={{ color: '#888', marginBottom: '20px', fontSize: '14px' }}>
+              Share this QR code for quick in-person invitations
+            </p>
+
+            <div style={{
+              background: '#fff',
+              padding: '20px',
+              borderRadius: '12px',
+              marginBottom: '20px'
+            }}>
+              <img
+                src={currentQRCode}
+                alt="Invitation QR Code"
+                style={{ width: '100%', maxWidth: '300px' }}
+              />
+            </div>
+
+            <div style={{
+              padding: '12px',
+              background: '#1a1a1a',
+              borderRadius: '8px',
+              marginBottom: '20px',
+              fontSize: '12px',
+              color: '#888',
+              wordBreak: 'break-all'
+            }}>
+              {currentInviteLink}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  // Download QR code
+                  const link = document.createElement('a');
+                  link.href = currentQRCode;
+                  link.download = 'invitation-qr-code.png';
+                  link.click();
+                }}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: '#ffa500',
+                  color: '#1a1a1a',
+                  border: 'none',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase'
+                }}
+              >
+                Download QR
+              </button>
+              <button
+                onClick={() => setShowQRModal(false)}
+                style={{
+                  flex: 1,
+                  padding: '14px',
+                  background: '#2d2d2d',
+                  color: '#ffa500',
+                  border: '2px solid #ffa500',
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase'
+                }}
+              >
+                Close
               </button>
             </div>
           </div>
