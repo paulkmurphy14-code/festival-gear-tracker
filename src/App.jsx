@@ -397,7 +397,7 @@ function AppContent() {
 
     if (signupType === 'join') {
       console.log('DEBUG: Showing Check Email message');
-      localStorage.removeItem('signupType'); // Clean up
+      // Don't remove here - will be removed on logout to prevent re-render issues
       return (
         <div style={{
           minHeight: '100vh',
@@ -425,7 +425,10 @@ function AppContent() {
               Once you receive your invitation email, click the link to join the festival.
             </p>
             <button
-              onClick={logout}
+              onClick={() => {
+                localStorage.removeItem('signupType');
+                logout();
+              }}
               style={{
                 marginTop: '30px',
                 padding: '14px 24px',
