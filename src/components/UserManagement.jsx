@@ -37,6 +37,7 @@ export default function UserManagement() {
   const [showQRModal, setShowQRModal] = useState(false);
   const [currentQRCode, setCurrentQRCode] = useState('');
   const [currentInviteLink, setCurrentInviteLink] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState([]);
 
   useEffect(() => {
     if (canManageUsers && currentFestival) {
@@ -243,6 +244,82 @@ export default function UserManagement() {
       console.error('Error removing user:', error);
       console.error('Error details:', error.code, error.message);
       setMessage('❌ Error removing user');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const toggleUserSelection = (userId) => {
+    setSelectedUsers(prev =>
+      prev.includes(userId)
+        ? prev.filter(id => id !== userId)
+        : [...prev, userId]
+    );
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedUsers.length === users.length) {
+      setSelectedUsers([]);
+    } else {
+      setSelectedUsers(users.map(u => u.id));
+    }
+  };
+
+  const handleBulkRemove = async () => {
+    if (selectedUsers.length === 0) {
+      setMessage('⚠️ No users selected');
+      setTimeout(() => setMessage(''), 3000);
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Remove ${selectedUsers.length} user${selectedUsers.length > 1 ? 's' : ''} from the festival? They will lose access immediately.`
+    );
+    if (!confirmed) return;
+
+    try {
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const userId of selectedUsers) {
+        // Skip owner
+        if (currentFestival.ownerId === userId) {
+          errorCount++;
+          continue;
+        }
+
+        try {
+          const userDocRef = doc(db, 'users', userId);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            const updatedFestivals = (userData.festivals || []).filter(
+              f => f.festivalId !== currentFestival.id
+            );
+            const updatedFestivalIds = (userData.festivalIds || []).filter(
+              id => id !== currentFestival.id
+            );
+
+            await updateDoc(userDocRef, {
+              festivals: updatedFestivals,
+              festivalIds: updatedFestivalIds
+            });
+
+            successCount++;
+          }
+        } catch (error) {
+          console.error(`Error removing user ${userId}:`, error);
+          errorCount++;
+        }
+      }
+
+      setMessage(`✅ Removed ${successCount} user${successCount !== 1 ? 's' : ''}${errorCount > 0 ? ` (${errorCount} failed)` : ''}`);
+      setTimeout(() => setMessage(''), 3000);
+      setSelectedUsers([]);
+      loadUsers();
+    } catch (error) {
+      console.error('Error in bulk remove:', error);
+      setMessage('❌ Error removing users');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -782,6 +859,52 @@ export default function UserManagement() {
           Festival Team ({users.length})
         </h3>
 
+        {users.length > 0 && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '16px',
+            marginBottom: '16px',
+            padding: '12px 16px',
+            background: '#1a1a1a',
+            borderRadius: '8px',
+            border: '1px solid #3a3a3a'
+          }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', color: '#e0e0e0' }}>
+              <input
+                type="checkbox"
+                checked={selectedUsers.length === users.length && users.length > 0}
+                onChange={toggleSelectAll}
+                style={{ cursor: 'pointer', width: '16px', height: '16px' }}
+              />
+              <span style={{ fontSize: '14px', fontWeight: '600' }}>
+                Select All ({selectedUsers.length} selected)
+              </span>
+            </label>
+
+            {selectedUsers.length > 0 && (
+              <button
+                onClick={handleBulkRemove}
+                style={{
+                  marginLeft: 'auto',
+                  padding: '8px 16px',
+                  background: 'rgba(244, 67, 54, 0.2)',
+                  color: '#ff6b6b',
+                  border: '2px solid #ff6b6b',
+                  borderRadius: '6px',
+                  fontSize: '13px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
+                }}
+              >
+                Remove Selected ({selectedUsers.length})
+              </button>
+            )}
+          </div>
+        )}
+
         {users.length === 0 ? (
           <div style={{
             padding: '40px 20px',
@@ -804,7 +927,7 @@ export default function UserManagement() {
                   border: '1px solid #3a3a3a'
                 }}
               >
-                {/* Top row: Email and Role Badge */}
+                {/* Top row: Checkbox, Email and Role Badge */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -812,6 +935,19 @@ export default function UserManagement() {
                   marginBottom: user.id === currentFestival.ownerId ? '0' : '12px',
                   gap: '12px'
                 }}>
+                  <input
+                    type="checkbox"
+                    checked={selectedUsers.includes(user.id)}
+                    onChange={() => toggleUserSelection(user.id)}
+                    disabled={user.id === currentFestival.ownerId}
+                    style={{
+                      cursor: user.id === currentFestival.ownerId ? 'not-allowed' : 'pointer',
+                      width: '18px',
+                      height: '18px',
+                      flexShrink: 0,
+                      opacity: user.id === currentFestival.ownerId ? 0.3 : 1
+                    }}
+                  />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{
                       fontSize: '15px',
@@ -826,7 +962,7 @@ export default function UserManagement() {
                     </div>
                     {user.id === currentFestival.ownerId && (
                       <div style={{ fontSize: '11px', color: '#888' }}>
-                        Festival Owner
+                        Festival Owner (Cannot be removed)
                       </div>
                     )}
                   </div>
