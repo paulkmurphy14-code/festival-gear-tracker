@@ -7,6 +7,7 @@ export default function Signup({ onSwitchToLogin, invitation }) {
   const [passwordConfirm, setPasswordConfirm] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [signupType, setSignupType] = useState('create'); // 'create' or 'join'
   const { signup } = useAuth();
 
   const handleSubmit = async (e) => {
@@ -19,7 +20,12 @@ export default function Signup({ onSwitchToLogin, invitation }) {
     try {
       setError('');
       setLoading(true);
+
+      // Store signup type for post-signup routing
+      localStorage.setItem('signupType', signupType);
+
       await signup(email, password);
+      // After signup, App.jsx will check signupType and route accordingly
     } catch (err) {
       setError('Failed to create account: ' + err.message);
     }
@@ -75,9 +81,61 @@ export default function Signup({ onSwitchToLogin, invitation }) {
         <h2 style={{ marginTop: 0, textAlign: 'center', color: '#ffa500', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '1px' }}>
           Festival Gear Tracker
         </h2>
-        <p style={{ textAlign: 'center', color: '#888', marginBottom: '30px' }}>
+        <p style={{ textAlign: 'center', color: '#888', marginBottom: '20px' }}>
           Create your account
         </p>
+
+        {/* Signup Type Selection */}
+        {!invitation && (
+          <div style={{ marginBottom: '30px' }}>
+            <label style={{ display: 'block', marginBottom: '12px', fontWeight: '600', color: '#ffa500', textAlign: 'center' }}>
+              What brings you here?
+            </label>
+            <div style={{ display: 'flex', gap: '12px' }}>
+              <button
+                type="button"
+                onClick={() => setSignupType('create')}
+                style={{
+                  flex: 1,
+                  padding: '16px 12px',
+                  background: signupType === 'create' ? '#ffa500' : '#2d2d2d',
+                  color: signupType === 'create' ? '#1a1a1a' : '#e0e0e0',
+                  border: `2px solid ${signupType === 'create' ? '#ffa500' : '#664400'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+              >
+                🎪<br/>Create Festival
+              </button>
+              <button
+                type="button"
+                onClick={() => setSignupType('join')}
+                style={{
+                  flex: 1,
+                  padding: '16px 12px',
+                  background: signupType === 'join' ? '#ffa500' : '#2d2d2d',
+                  color: signupType === 'join' ? '#1a1a1a' : '#e0e0e0',
+                  border: `2px solid ${signupType === 'join' ? '#ffa500' : '#664400'}`,
+                  borderRadius: '8px',
+                  fontSize: '14px',
+                  fontWeight: '700',
+                  cursor: 'pointer',
+                  textAlign: 'center'
+                }}
+              >
+                👥<br/>Join Festival
+              </button>
+            </div>
+            {signupType === 'join' && (
+              <p style={{ marginTop: '12px', fontSize: '13px', color: '#888', textAlign: 'center' }}>
+                You'll need an invitation link from a festival organizer
+              </p>
+            )}
+          </div>
+        )}
 
         {error && (
           <div style={{

@@ -389,6 +389,59 @@ function AppContent() {
   }
 
   if (!currentFestival) {
+    // Check if user just signed up to join a festival
+    const signupType = localStorage.getItem('signupType');
+    if (signupType === 'join') {
+      localStorage.removeItem('signupType'); // Clean up
+      return (
+        <div style={{
+          minHeight: '100vh',
+          background: '#1a1a1a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div style={{
+            background: '#2d2d2d',
+            borderRadius: '20px',
+            padding: '40px',
+            maxWidth: '500px',
+            width: '100%',
+            textAlign: 'center',
+            border: '2px solid #ffa500'
+          }}>
+            <div style={{ fontSize: '64px', marginBottom: '20px' }}>📧</div>
+            <h2 style={{ color: '#ffa500', marginBottom: '16px' }}>Check Your Email</h2>
+            <p style={{ color: '#e0e0e0', marginBottom: '20px' }}>
+              To join a festival, you'll need an invitation link from a festival organizer.
+            </p>
+            <p style={{ color: '#888', fontSize: '14px' }}>
+              Once you receive your invitation email, click the link to join the festival.
+            </p>
+            <button
+              onClick={logout}
+              style={{
+                marginTop: '30px',
+                padding: '14px 24px',
+                background: '#664400',
+                color: '#ffa500',
+                border: 'none',
+                borderRadius: '8px',
+                fontSize: '14px',
+                fontWeight: '700',
+                cursor: 'pointer'
+              }}
+            >
+              Log Out
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // Default: show festival setup (for festival creators)
+    localStorage.removeItem('signupType'); // Clean up
     return <FestivalSetup invitation={invitation} />;
   }
 
