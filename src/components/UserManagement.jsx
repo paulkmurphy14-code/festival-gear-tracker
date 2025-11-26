@@ -42,14 +42,38 @@ export default function UserManagement() {
   const loadUsers = async () => {
     try {
       setLoading(true);
-      // Get all users for this festival
-      const q = query(collection(db, 'users'), where('festivalId', '==', currentFestival.id));
-      const snapshot = await getDocs(q);
 
-      const userList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Query all users (can't query array contains in Firestore without index)
+      const allUsersSnapshot = await getDocs(collection(db, 'users'));
+
+      // Filter users who belong to current festival
+      const userList = allUsersSnapshot.docs
+        .map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }))
+        .filter(user => {
+          // Support both old and new schema
+          if (user.festivals && Array.isArray(user.festivals)) {
+            // New schema: check festivals array
+            return user.festivals.some(f => f.festivalId === currentFestival.id);
+          } else if (user.festivalId) {
+            // Old schema: check festivalId field
+            return user.festivalId === currentFestival.id;
+          }
+          return false;
+        })
+        .map(user => {
+          // Add role from festivals array for display
+          if (user.festivals && Array.isArray(user.festivals)) {
+            const festivalEntry = user.festivals.find(f => f.festivalId === currentFestival.id);
+            return {
+              ...user,
+              role: festivalEntry?.role || 'user'
+            };
+          }
+          return user;
+        });
 
       setUsers(userList);
     } catch (error) {

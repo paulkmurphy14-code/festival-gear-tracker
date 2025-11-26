@@ -38,8 +38,20 @@ export function useRole() {
         const userDoc = await getDoc(doc(db, 'users', currentUser.uid));
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          // Verify user belongs to this festival
-          if (userData.festivalId === currentFestival.id) {
+
+          // New schema: festivals array
+          if (userData.festivals && Array.isArray(userData.festivals)) {
+            const festivalEntry = userData.festivals.find(
+              f => f.festivalId === currentFestival.id
+            );
+            if (festivalEntry) {
+              setRole(festivalEntry.role || 'user');
+            } else {
+              setRole(null);
+            }
+          }
+          // Old schema fallback
+          else if (userData.festivalId === currentFestival.id) {
             setRole(userData.role || 'user');
           } else {
             setRole(null);

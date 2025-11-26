@@ -7,24 +7,49 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Helper function to get user's festival ID
-    function getUserFestivalId() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.festivalId;
-    }
-
     // Helper function to check if user belongs to the festival
+    // Supports both old (festivalId field) and new (festivals array) schema
     function belongsToFestival(festivalId) {
-      return isSignedIn() && getUserFestivalId() == festivalId;
+      if (!isSignedIn()) return false;
+
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+      // New schema: check festivals array
+      if ('festivals' in userDoc && userDoc.festivals is list) {
+        return userDoc.festivals.hasAny([{festivalId: festivalId}]);
+      }
+      // Old schema: check festivalId field
+      else if ('festivalId' in userDoc) {
+        return userDoc.festivalId == festivalId;
+      }
+
+      return false;
     }
 
     // Helper function to check if user is admin or owner
+    // Supports both old and new schema
     function isAdminOrOwner(festivalId) {
+      if (!isSignedIn()) return false;
+
       let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       let festivalDoc = get(/databases/$(database)/documents/festivals/$(festivalId)).data;
-      return isSignedIn() && (
-        festivalDoc.ownerId == request.auth.uid ||
-        (userDoc.festivalId == festivalId && userDoc.role == 'admin')
-      );
+
+      // Check if owner
+      if (festivalDoc.ownerId == request.auth.uid) {
+        return true;
+      }
+
+      // Check if admin - new schema
+      if ('festivals' in userDoc && userDoc.festivals is list) {
+        // Check if user has this festival with admin role
+        return userDoc.festivals.hasAny([{festivalId: festivalId, role: 'admin'}]);
+      }
+      // Old schema
+      else if ('festivalId' in userDoc) {
+        return userDoc.festivalId == festivalId && userDoc.role == 'admin';
+      }
+
+      return false;
     }
 
     // Users collection - Allow owners to query by email for invitations
