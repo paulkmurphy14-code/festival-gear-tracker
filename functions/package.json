@@ -2,7 +2,7 @@
   "name": "functions",
   "description": "Cloud Functions for Festival Gear Tracker - Email Invitations",
   "engines": {
-    "node": "18"
+    "node": "20"
   },
   "main": "index.js",
   "dependencies": {

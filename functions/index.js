@@ -4,10 +4,6 @@ const sgMail = require('@sendgrid/mail');
 
 admin.initializeApp();
 
-// Set SendGrid API key from Firebase config
-// Configure with: firebase functions:config:set sendgrid.key="YOUR_SENDGRID_API_KEY"
-sgMail.setApiKey(functions.config().sendgrid.key);
-
 /**
  * Trigger when new invitation is created in Firestore
  * Sends beautiful HTML email with invitation link
@@ -15,6 +11,10 @@ sgMail.setApiKey(functions.config().sendgrid.key);
 exports.sendInvitationEmail = functions.firestore
   .document('invitations/{invitationId}')
   .onCreate(async (snap, context) => {
+    // Set SendGrid API key from environment variables
+    // Configure in functions/.env file
+    sgMail.setApiKey(process.env.SENDGRID_KEY);
+
     const invitation = snap.data();
     const invitationId = context.params.invitationId;
 
@@ -24,15 +24,15 @@ exports.sendInvitationEmail = functions.firestore
       return null;
     }
 
-    // Get the app URL from Firebase config or use default
-    // Configure with: firebase functions:config:set app.url="https://your-app.web.app"
-    const appUrl = functions.config().app?.url || 'https://your-app.web.app';
+    // Get the app URL from environment variables
+    // Configure in functions/.env file
+    const appUrl = process.env.APP_URL || 'https://your-app.web.app';
     const inviteLink = `${appUrl}/invite/${invitationId}`;
 
     const msg = {
       to: invitation.email,
       from: {
-        email: 'noreply@yourfestival.com', // Must be verified in SendGrid
+        email: 'festivalgeartracker@gmail.com', // Must be verified in SendGrid
         name: 'Festival Gear Tracker'
       },
       subject: `You've been invited to ${invitation.festivalName}!`,

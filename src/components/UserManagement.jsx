@@ -118,7 +118,9 @@ export default function UserManagement() {
       const invitationRef = doc(collection(db, 'invitations'));
 
       // Generate invitation link with new route
-      const inviteLink = `${window.location.origin}/invite/${invitationRef.id}`;
+      // Use Vercel URL for consistent links (works both in production and local dev)
+      const appUrl = 'https://festival-gear-tracker.vercel.app';
+      const inviteLink = `${appUrl}/invite/${invitationRef.id}`;
 
       // Generate QR code as data URL
       const qrCodeDataUrl = await QRCode.toDataURL(inviteLink, {
