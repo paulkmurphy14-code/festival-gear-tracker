@@ -34,10 +34,27 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn() && request.auth.uid == userId;
       allow create: if isSignedIn() && request.auth.uid == userId;
-      allow update: if isSignedIn() && request.auth.uid == userId;
+      allow update: if isSignedIn() && (
+        // Users can update their own document
+        request.auth.uid == userId ||
+        // Admins/owners can remove users from their festivals
+        canRemoveUserFromFestival(userId)
+      );
       allow delete: if false;
       // Allow listing/querying users for invitation checks
       allow list: if isSignedIn();
+    }
+
+    // Helper function to check if current user can remove another user from a festival
+    function canRemoveUserFromFestival(targetUserId) {
+      let targetUserData = get(/databases/$(database)/documents/users/$(targetUserId)).data;
+      let currentUserData = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+
+      // Check if there's a festival being removed from the target user
+      // Must use boolean expressions only (no if/return statements)
+      return (request.resource.data.festivalIds != null && resource.data.festivalIds != null) &&
+        resource.data.festivalIds.toSet().difference(request.resource.data.festivalIds.toSet()).size() > 0 &&
+        (currentUserData.festivalIds != null);
     }
 
     // Invitations collection - Root level (for signup/invitation lookups)
