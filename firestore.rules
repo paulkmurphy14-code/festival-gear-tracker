@@ -48,12 +48,16 @@ service cloud.firestore {
     // Helper function to check if current user can remove another user from a festival
     // Note: Additional owner/admin verification is enforced at the application layer
     function canRemoveUserFromFestival(targetUserId) {
-      // Allow if user is authenticated and festivals are being removed
-      // The UI component (UserManagement) already checks if user is owner/admin via useRole hook
-      return isSignedIn() &&
-             request.resource.data.festivalIds != null &&
-             resource.data.festivalIds != null &&
-             resource.data.festivalIds.toSet().difference(request.resource.data.festivalIds.toSet()).size() > 0;
+      // Allow if user is authenticated and festivals field is being updated
+      // Check if festivals array is being modified (either new or old schema)
+      let hasFestivalsChange = (
+        (request.resource.data.festivals != null && resource.data.festivals != null &&
+         request.resource.data.festivals.size() < resource.data.festivals.size()) ||
+        (request.resource.data.festivalIds != null && resource.data.festivalIds != null &&
+         request.resource.data.festivalIds.size() < resource.data.festivalIds.size())
+      );
+
+      return isSignedIn() && hasFestivalsChange;
     }
 
     // Invitations collection - Root level (for signup/invitation lookups)
