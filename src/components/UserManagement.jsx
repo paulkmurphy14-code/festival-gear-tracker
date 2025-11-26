@@ -38,10 +38,13 @@ export default function UserManagement() {
   const [currentQRCode, setCurrentQRCode] = useState('');
   const [currentInviteLink, setCurrentInviteLink] = useState('');
   const [selectedUsers, setSelectedUsers] = useState([]);
+  const [invitations, setInvitations] = useState([]);
+  const [loadingInvitations, setLoadingInvitations] = useState(false);
 
   useEffect(() => {
     if (canManageUsers && currentFestival) {
       loadUsers();
+      loadInvitations();
     }
   }, [canManageUsers, currentFestival]);
 
@@ -88,6 +91,38 @@ export default function UserManagement() {
       setTimeout(() => setMessage(''), 3000);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadInvitations = async () => {
+    try {
+      setLoadingInvitations(true);
+
+      // Query invitations for current festival
+      const invitationsSnapshot = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('festivalId', '==', currentFestival.id)
+        )
+      );
+
+      const invitationsList = invitationsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      // Sort by date (newest first)
+      invitationsList.sort((a, b) => {
+        const dateA = a.invitedAt?.toDate?.() || new Date(0);
+        const dateB = b.invitedAt?.toDate?.() || new Date(0);
+        return dateB - dateA;
+      });
+
+      setInvitations(invitationsList);
+    } catch (error) {
+      console.error('Error loading invitations:', error);
+    } finally {
+      setLoadingInvitations(false);
     }
   };
 
@@ -159,6 +194,9 @@ export default function UserManagement() {
       setCurrentQRCode(qrCodeDataUrl);
       setCurrentInviteLink(inviteLink);
       setShowQRModal(true);
+
+      // Reload invitations list
+      loadInvitations();
 
       setTimeout(() => setMessage(''), 5000);
     } catch (error) {
@@ -320,6 +358,48 @@ export default function UserManagement() {
     } catch (error) {
       console.error('Error in bulk remove:', error);
       setMessage('❌ Error removing users');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const handleCopyInviteLink = (invitationId) => {
+    const appUrl = 'https://festival-gear-tracker.vercel.app';
+    const inviteLink = `${appUrl}/invite/${invitationId}`;
+    navigator.clipboard.writeText(inviteLink);
+    setMessage('✅ Invitation link copied to clipboard');
+    setTimeout(() => setMessage(''), 3000);
+  };
+
+  const handleDeleteInvitation = async (invitationId) => {
+    const confirmed = window.confirm('Delete this invitation? The link will no longer work.');
+    if (!confirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'invitations', invitationId));
+      setMessage('✅ Invitation deleted');
+      setTimeout(() => setMessage(''), 3000);
+      loadInvitations();
+    } catch (error) {
+      console.error('Error deleting invitation:', error);
+      setMessage('❌ Error deleting invitation');
+      setTimeout(() => setMessage(''), 3000);
+    }
+  };
+
+  const handleResendInvitation = async (invitation) => {
+    try {
+      // Update expiry date (extend by 7 days from now)
+      await updateDoc(doc(db, 'invitations', invitation.id), {
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        status: 'pending' // Reset status if it was expired
+      });
+
+      setMessage('✅ Invitation extended by 7 days');
+      setTimeout(() => setMessage(''), 3000);
+      loadInvitations();
+    } catch (error) {
+      console.error('Error resending invitation:', error);
+      setMessage('❌ Error resending invitation');
       setTimeout(() => setMessage(''), 3000);
     }
   };
@@ -1612,6 +1692,158 @@ export default function UserManagement() {
           </div>
         </div>
       )}
+
+      {/* Sent Invitations Section */}
+      <div style={{
+        marginTop: '40px',
+        padding: '24px',
+        background: '#2d2d2d',
+        borderRadius: '16px',
+        border: '2px solid #3a3a3a'
+      }}>
+        <h3 style={{
+          marginTop: 0,
+          marginBottom: '20px',
+          color: '#ffa500',
+          fontWeight: '700',
+          textTransform: 'uppercase',
+          letterSpacing: '1px'
+        }}>
+          Sent Invitations ({invitations.length})
+        </h3>
+
+        {loadingInvitations ? (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888' }}>
+            Loading invitations...
+          </div>
+        ) : invitations.length === 0 ? (
+          <div style={{ padding: '40px 20px', textAlign: 'center', color: '#888', fontSize: '14px' }}>
+            No invitations sent yet. Use the form above to invite team members.
+          </div>
+        ) : (
+          <div>
+            {invitations.map(invitation => {
+              const isExpired = invitation.expiresAt && new Date(invitation.expiresAt.toDate()) < new Date();
+              const statusColor = invitation.status === 'accepted' ? '#4caf50' : isExpired ? '#ff6b6b' : '#ffa500';
+              const statusText = invitation.status === 'accepted' ? 'ACCEPTED' : isExpired ? 'EXPIRED' : 'PENDING';
+
+              return (
+                <div
+                  key={invitation.id}
+                  style={{
+                    padding: '16px',
+                    marginBottom: '12px',
+                    background: '#1a1a1a',
+                    borderRadius: '12px',
+                    border: `1px solid ${statusColor}30`
+                  }}
+                >
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '12px',
+                    marginBottom: '12px'
+                  }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{
+                        fontSize: '15px',
+                        fontWeight: '600',
+                        color: '#e0e0e0',
+                        marginBottom: '4px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap'
+                      }}>
+                        {invitation.email}
+                      </div>
+                      <div style={{ fontSize: '12px', color: '#888' }}>
+                        Invited {invitation.invitedAt?.toDate?.().toLocaleDateString()} • Role: {(invitation.role || 'user').toUpperCase()}
+                      </div>
+                    </div>
+                    <div style={{
+                      padding: '4px 12px',
+                      background: `${statusColor}20`,
+                      color: statusColor,
+                      borderRadius: '6px',
+                      fontSize: '11px',
+                      fontWeight: '700',
+                      letterSpacing: '0.5px'
+                    }}>
+                      {statusText}
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  {invitation.status !== 'accepted' && (
+                    <div style={{
+                      display: 'flex',
+                      gap: '8px',
+                      flexWrap: 'wrap'
+                    }}>
+                      <button
+                        onClick={() => handleCopyInviteLink(invitation.id)}
+                        style={{
+                          padding: '8px 14px',
+                          background: 'rgba(255, 165, 0, 0.2)',
+                          color: '#ffa500',
+                          border: '2px solid #ffa500',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        📋 Copy Link
+                      </button>
+
+                      {isExpired && (
+                        <button
+                          onClick={() => handleResendInvitation(invitation)}
+                          style={{
+                            padding: '8px 14px',
+                            background: 'rgba(76, 175, 80, 0.2)',
+                            color: '#4caf50',
+                            border: '2px solid #4caf50',
+                            borderRadius: '6px',
+                            fontSize: '12px',
+                            fontWeight: '700',
+                            cursor: 'pointer',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px'
+                          }}
+                        >
+                          🔄 Extend
+                        </button>
+                      )}
+
+                      <button
+                        onClick={() => handleDeleteInvitation(invitation.id)}
+                        style={{
+                          padding: '8px 14px',
+                          background: 'rgba(244, 67, 54, 0.2)',
+                          color: '#ff6b6b',
+                          border: '2px solid #ff6b6b',
+                          borderRadius: '6px',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          cursor: 'pointer',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px'
+                        }}
+                      >
+                        🗑️ Delete
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
       {/* QR Code Modal */}
       {showQRModal && (
