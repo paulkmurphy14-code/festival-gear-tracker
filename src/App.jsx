@@ -391,7 +391,12 @@ function AppContent() {
   if (!currentFestival) {
     // Check if user just signed up to join a festival
     const signupType = localStorage.getItem('signupType');
+    console.log('DEBUG: !currentFestival check reached');
+    console.log('DEBUG: signupType from localStorage:', signupType);
+    console.log('DEBUG: signupType === "join":', signupType === 'join');
+
     if (signupType === 'join') {
+      console.log('DEBUG: Showing Check Email message');
       localStorage.removeItem('signupType'); // Clean up
       return (
         <div style={{
@@ -441,6 +446,7 @@ function AppContent() {
     }
 
     // Default: show festival setup (for festival creators)
+    console.log('DEBUG: Showing FestivalSetup (default path)');
     localStorage.removeItem('signupType'); // Clean up
     return <FestivalSetup invitation={invitation} />;
   }
